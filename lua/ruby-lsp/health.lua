@@ -30,6 +30,14 @@ function M.check()
     vim.health.info("nvim-dap is not installed (debugging will not be available)")
   end
 
+  -- Check for neotest
+  local neotest_ok = pcall(require, "neotest")
+  if neotest_ok then
+    vim.health.ok("neotest is installed")
+  else
+    vim.health.info("neotest is not installed (code lens will run tests via executor)")
+  end
+
   -- Check for toggleterm
   local toggleterm_ok = pcall(require, "toggleterm")
   if toggleterm_ok then

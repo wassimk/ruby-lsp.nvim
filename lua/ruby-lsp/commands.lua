@@ -3,8 +3,37 @@ local executor = require("ruby-lsp.executor")
 local M = {}
 
 ---rubyLsp.runTest handler.
+---Routes through neotest when available, otherwise falls back to the executor.
 ---@param command lsp.Command
 function M.run_test(command)
+  local args = command.arguments or {}
+  local cmd = args[3]
+  if not cmd then
+    vim.notify("ruby-lsp: missing test command in arguments", vim.log.levels.ERROR)
+    return
+  end
+
+  local neotest_ok, neotest = pcall(require, "neotest")
+  if neotest_ok then
+    local range = args[4]
+    if range and range.start then
+      vim.api.nvim_win_set_cursor(0, { range.start.line + 1, 0 })
+    end
+    neotest.run.run()
+    return
+  end
+
+  executor.run(cmd, {
+    file_path = args[1],
+    test_id = args[2],
+    test_name = args[5],
+  })
+end
+
+---rubyLsp.runTestInTerminal handler.
+---Always runs via the executor (never routes through neotest).
+---@param command lsp.Command
+function M.run_test_terminal(command)
   local args = command.arguments or {}
   local cmd = args[3]
   if not cmd then
@@ -17,12 +46,6 @@ function M.run_test(command)
     test_id = args[2],
     test_name = args[5],
   })
-end
-
----rubyLsp.runTestInTerminal handler.
----@param command lsp.Command
-function M.run_test_terminal(command)
-  M.run_test(command)
 end
 
 ---rubyLsp.debugTest handler.
@@ -68,11 +91,13 @@ local function parse_file_uri(uri)
 end
 
 ---rubyLsp.openFile handler.
+---Arguments are [[uri1, uri2, ...]] — a single array of URI strings nested in arguments.
 ---@param command lsp.Command
 function M.open_file(command)
   local args = command.arguments or {}
+  local uris = args[1]
 
-  if #args == 0 then
+  if not uris or #uris == 0 then
     vim.notify("ruby-lsp: no file URI provided", vim.log.levels.WARN)
     return
   end
@@ -85,10 +110,15 @@ function M.open_file(command)
     end
   end
 
-  if #args == 1 then
-    open_uri(args[1])
+  if #uris == 1 then
+    open_uri(uris[1])
   else
-    vim.ui.select(args, { prompt = "Open file:" }, function(choice)
+    vim.ui.select(uris, {
+      prompt = "Open file:",
+      format_item = function(uri)
+        return vim.fn.fnamemodify(vim.uri_to_fname(uri:gsub("#.*$", "")), ":t")
+      end,
+    }, function(choice)
       if choice then
         open_uri(choice)
       end
