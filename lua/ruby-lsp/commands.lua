@@ -2,50 +2,101 @@ local executor = require("ruby-lsp.executor")
 
 local M = {}
 
+local FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n"
+  .. "Add to your ruby_lsp LSP config:\n"
+  .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
+
+---Build a minimal LSP test item from code lens arguments.
+---@param file_path string
+---@param test_id string
+---@return table
+local function build_test_item(file_path, test_id)
+  return {
+    id = test_id,
+    label = test_id,
+    uri = vim.uri_from_fname(file_path),
+    range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } },
+    tags = {},
+    children = {},
+  }
+end
+
+---Resolve the test command via rubyLsp/resolveTestCommands and run it.
+---@param file_path string
+---@param test_id string
+local function resolve_and_run(file_path, test_id)
+  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  if #clients == 0 then
+    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
+    return
+  end
+
+  local client = clients[1]
+  local items = { build_test_item(file_path, test_id) }
+
+  client:request("rubyLsp/resolveTestCommands", { items = items }, function(err, result)
+    if err or not result or not result.commands or #result.commands == 0 then
+      vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+      return
+    end
+    vim.schedule(function()
+      executor.run(result.commands[1], { file_path = file_path, test_id = test_id })
+    end)
+  end, 0)
+end
+
+---Validate that the command uses the fullTestDiscovery format.
+---Returns file_path and test_id on success, or nil if the format is wrong.
+---@param command lsp.Command
+---@return string|nil file_path
+---@return string|nil test_id
+local function validate_test_args(command)
+  local args = command.arguments or {}
+
+  if args[3] then
+    vim.notify(FEATURE_FLAG_MSG, vim.log.levels.WARN)
+    return nil, nil
+  end
+
+  local file_path = args[1]
+  local test_id = args[2]
+
+  if not file_path or not test_id then
+    vim.notify("ruby-lsp: missing test arguments", vim.log.levels.ERROR)
+    return nil, nil
+  end
+
+  return file_path, test_id
+end
+
 ---rubyLsp.runTest handler.
 ---Routes through neotest when available, otherwise falls back to the executor.
 ---@param command lsp.Command
 function M.run_test(command)
-  local args = command.arguments or {}
-  local cmd = args[3]
-  if not cmd then
-    vim.notify("ruby-lsp: missing test command in arguments", vim.log.levels.ERROR)
+  local file_path, test_id = validate_test_args(command)
+  if not file_path then
     return
   end
 
   local neotest_ok, neotest = pcall(require, "neotest")
   if neotest_ok then
-    local range = args[4]
-    if range and range.start then
-      vim.api.nvim_win_set_cursor(0, { range.start.line + 1, 0 })
-    end
-    neotest.run.run()
+    neotest.run.run(file_path .. "::" .. test_id)
     return
   end
 
-  executor.run(cmd, {
-    file_path = args[1],
-    test_id = args[2],
-    test_name = args[5],
-  })
+  resolve_and_run(file_path, test_id)
 end
 
 ---rubyLsp.runTestInTerminal handler.
 ---Always runs via the executor (never routes through neotest).
 ---@param command lsp.Command
 function M.run_test_terminal(command)
-  local args = command.arguments or {}
-  local cmd = args[3]
-  if not cmd then
-    vim.notify("ruby-lsp: missing test command in arguments", vim.log.levels.ERROR)
+  local file_path, test_id = validate_test_args(command)
+  if not file_path then
     return
   end
 
-  executor.run(cmd, {
-    file_path = args[1],
-    test_id = args[2],
-    test_name = args[5],
-  })
+  resolve_and_run(file_path, test_id)
 end
 
 ---rubyLsp.debugTest handler.

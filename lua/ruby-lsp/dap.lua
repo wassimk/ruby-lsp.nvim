@@ -2,6 +2,10 @@ local config = require("ruby-lsp.config")
 
 local M = {}
 
+local FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n"
+  .. "Add to your ruby_lsp LSP config:\n"
+  .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
+
 ---Register the rdbg DAP adapter if nvim-dap is available and no adapter is already set.
 function M.setup_adapter()
   local ok, dap = pcall(require, "dap")
@@ -103,22 +107,15 @@ local function parse_shell_command(shell_cmd)
   }
 end
 
----Handle rubyLsp.debugTest command.
----@param command lsp.Command
-function M.debug_test(command)
+---Launch a DAP session with a resolved shell command.
+---@param shell_cmd string
+local function launch_dap(shell_cmd)
   local ok, dap = pcall(require, "dap")
   if not ok then
     vim.notify(
       "ruby-lsp: nvim-dap is required for debugging. Install mfussenegger/nvim-dap.",
       vim.log.levels.WARN
     )
-    return
-  end
-
-  local args = command.arguments or {}
-  local shell_cmd = args[3]
-  if not shell_cmd then
-    vim.notify("ruby-lsp: missing test command in arguments", vim.log.levels.ERROR)
     return
   end
 
@@ -133,6 +130,61 @@ function M.debug_test(command)
     script = parsed.script,
     script_args = #parsed.script_args > 0 and parsed.script_args or nil,
   })
+end
+
+---Handle rubyLsp.debugTest command.
+---@param command lsp.Command
+function M.debug_test(command)
+  local ok = pcall(require, "dap")
+  if not ok then
+    vim.notify(
+      "ruby-lsp: nvim-dap is required for debugging. Install mfussenegger/nvim-dap.",
+      vim.log.levels.WARN
+    )
+    return
+  end
+
+  local args = command.arguments or {}
+
+  if args[3] then
+    vim.notify(FEATURE_FLAG_MSG, vim.log.levels.WARN)
+    return
+  end
+
+  local file_path = args[1]
+  local test_id = args[2]
+  if not file_path or not test_id then
+    vim.notify("ruby-lsp: missing test arguments", vim.log.levels.ERROR)
+    return
+  end
+
+  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  if #clients == 0 then
+    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
+    return
+  end
+
+  local client = clients[1]
+  local items = {
+    {
+      id = test_id,
+      label = test_id,
+      uri = vim.uri_from_fname(file_path),
+      range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } },
+      tags = {},
+      children = {},
+    },
+  }
+
+  client:request("rubyLsp/resolveTestCommands", { items = items }, function(err, result)
+    if err or not result or not result.commands or #result.commands == 0 then
+      vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+      return
+    end
+    vim.schedule(function()
+      launch_dap(result.commands[1])
+    end)
+  end, 0)
 end
 
 return M

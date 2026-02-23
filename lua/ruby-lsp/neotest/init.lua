@@ -27,36 +27,40 @@ local function to_neotest_range(range)
   }
 end
 
----Map ruby-lsp test item kind to neotest position type.
----@param kind integer 1 = group, 2 = test
+---Determine neotest position type from a test item's structure.
+---Items with children are namespaces (classes/groups), leaves are tests.
+---@param item table LSP test item
 ---@return string
-local function to_neotest_type(kind)
-  if kind == 2 then
-    return "test"
+local function to_neotest_type(item)
+  if item.children and #item.children > 0 then
+    return "namespace"
   end
-  return "namespace"
+  return "test"
 end
 
 ---Recursively build a nested list structure for neotest Tree.from_list.
+---Stores the raw LSP test item on each position for use in build_spec.
 ---@param items table[] LSP test items
 ---@param file_path string
 ---@return table[]
 local function build_tree_list(items, file_path)
   local children = {}
   for _, item in ipairs(items) do
-    local cmd = nil
-    if item.command and item.command.arguments then
-      cmd = item.command.arguments[3]
-    end
-
     local node = {
       {
         id = file_path .. "::" .. item.id,
         name = item.label,
-        type = to_neotest_type(item.kind),
+        type = to_neotest_type(item),
         path = file_path,
         range = to_neotest_range(item.range),
-        cmd = cmd,
+        lsp_test_item = {
+          id = item.id,
+          label = item.label,
+          uri = item.uri,
+          range = item.range,
+          tags = item.tags or {},
+          children = {},
+        },
       },
     }
 
@@ -72,40 +76,17 @@ local function build_tree_list(items, file_path)
   return children
 end
 
----Walk a neotest tree to find the first stored command.
+---Recursively collect LSP test items from a neotest tree.
 ---@param tree neotest.Tree
----@return string|nil
-local function find_cmd_in_tree(tree)
+---@param items table[]
+local function collect_test_items(tree, items)
   local data = tree:data()
-  if data.cmd then
-    return data.cmd
+  if data.lsp_test_item then
+    table.insert(items, data.lsp_test_item)
   end
   for _, child in ipairs(tree:children()) do
-    local cmd = find_cmd_in_tree(child)
-    if cmd then
-      return cmd
-    end
+    collect_test_items(child, items)
   end
-  return nil
-end
-
----Strip test-specific arguments from a command to produce a file-level command.
----Handles minitest (--name / -n) and rspec (:line_number) patterns.
----@param cmd string
----@return string
-local function make_file_command(cmd)
-  local file_cmd = cmd
-  -- minitest: --name "value", --name 'value', --name /regex/, --name value
-  file_cmd = file_cmd:gsub("%s+%-%-name%s+['\"].-['\"]", "")
-  file_cmd = file_cmd:gsub("%s+%-%-name%s+/.-/", "")
-  file_cmd = file_cmd:gsub("%s+%-%-name%s+%S+", "")
-  -- minitest: -n "value", -n 'value', -n /regex/, -n value
-  file_cmd = file_cmd:gsub("%s+%-n%s+['\"].-['\"]", "")
-  file_cmd = file_cmd:gsub("%s+%-n%s+/.-/", "")
-  file_cmd = file_cmd:gsub("%s+%-n%s+%S+", "")
-  -- rspec: file.rb:42 line numbers
-  file_cmd = file_cmd:gsub("%.rb:%d+", ".rb")
-  return vim.trim(file_cmd)
 end
 
 function NeotestAdapter.root(dir)
@@ -173,35 +154,47 @@ function NeotestAdapter.discover_positions(file_path)
 end
 
 ---Build a test command spec from a neotest position.
+---Resolves the actual shell command via rubyLsp/resolveTestCommands.
 ---@param args neotest.RunArgs
 ---@return neotest.RunSpec|nil
 function NeotestAdapter.build_spec(args)
   local position = args.tree:data()
   local tree = args.tree
 
+  local items = {}
   if position.type == "test" or position.type == "namespace" then
-    local cmd = position.cmd
-    if not cmd then
-      return nil
+    if position.lsp_test_item then
+      table.insert(items, position.lsp_test_item)
     end
-    return {
-      command = vim.split(cmd, " "),
-      context = { pos_id = position.id },
-    }
+  elseif position.type == "file" then
+    collect_test_items(tree, items)
   end
 
-  if position.type == "file" then
-    local cmd = find_cmd_in_tree(tree)
-    if not cmd then
-      return nil
-    end
-    return {
-      command = vim.split(make_file_command(cmd), " "),
-      context = { pos_id = position.id },
-    }
+  if #items == 0 then
+    return nil
   end
 
-  return nil
+  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  if #clients == 0 then
+    return nil
+  end
+
+  local client = clients[1]
+  local bufnr = vim.fn.bufnr(position.path)
+  if bufnr == -1 then
+    bufnr = 0
+  end
+
+  local err, result = lsp_request(client, "rubyLsp/resolveTestCommands", { items = items }, bufnr)
+
+  if err or not result or not result.commands or #result.commands == 0 then
+    return nil
+  end
+
+  return {
+    command = vim.split(result.commands[1], " "),
+    context = { pos_id = position.id },
+  }
 end
 
 ---Parse test results from command execution.
