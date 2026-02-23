@@ -207,6 +207,55 @@ function NeotestAdapter.build_spec(args)
   }
 end
 
+---Parse Minitest output to extract failed test IDs.
+---Looks for "N) Failure:" or "N) Error:" markers followed by "ClassName#test_method".
+---@param output_path string
+---@return table<string, boolean>
+local function parse_failed_tests(output_path)
+  local failed = {}
+  local f = io.open(output_path, "r")
+  if not f then
+    return failed
+  end
+
+  local in_failure = false
+  for line in f:lines() do
+    if line:match("^%s*%d+%) Failure:") or line:match("^%s*%d+%) Error:") then
+      in_failure = true
+    elseif in_failure then
+      local test_id = line:match("^(%S+#%S+)")
+      if test_id then
+        -- Strip trailing " [file:line]:" portion
+        test_id = test_id:match("^([^%[]+)")
+        failed[test_id] = true
+      end
+      in_failure = false
+    end
+  end
+
+  f:close()
+  return failed
+end
+
+---Recursively mark each leaf test node with its result.
+---@param node neotest.Tree
+---@param failed table<string, boolean>
+---@param output string
+---@param results table<string, neotest.Result>
+local function assign_test_results(node, failed, output, results)
+  local data = node:data()
+  if data.type == "test" then
+    local test_failed = data.lsp_test_item and failed[data.lsp_test_item.id] or false
+    results[data.id] = {
+      status = test_failed and "failed" or "passed",
+      output = output,
+    }
+  end
+  for _, child in ipairs(node:children()) do
+    assign_test_results(child, failed, output, results)
+  end
+end
+
 ---Parse test results from command execution.
 ---@param spec neotest.RunSpec
 ---@param result neotest.StrategyResult
@@ -215,12 +264,20 @@ end
 function NeotestAdapter.results(spec, result, tree)
   local results = {}
   local pos_id = spec.context.pos_id
-  local status = result.code == 0 and "passed" or "failed"
 
-  results[pos_id] = {
-    status = status,
-    output = result.output,
-  }
+  if result.code == 0 then
+    -- All tests passed — mark every leaf
+    assign_test_results(tree, {}, result.output, results)
+  else
+    -- Parse output to identify which specific tests failed
+    local failed = parse_failed_tests(result.output)
+    if next(failed) then
+      assign_test_results(tree, failed, result.output, results)
+    else
+      -- Could not parse individual failures — fall back to marking parent
+      results[pos_id] = { status = "failed", output = result.output }
+    end
+  end
 
   return results
 end
