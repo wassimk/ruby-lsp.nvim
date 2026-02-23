@@ -7,6 +7,17 @@ function M.check()
   local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
   if #clients > 0 then
     vim.health.ok("Ruby LSP server is active (" .. #clients .. " client(s))")
+
+    local init_options = clients[1].config.init_options or {}
+    local flags = init_options.enabledFeatureFlags or {}
+    if flags.fullTestDiscovery then
+      vim.health.ok("fullTestDiscovery feature flag is enabled")
+    else
+      vim.health.warn("fullTestDiscovery feature flag is not enabled", {
+        "Test discovery and code lens actions require this flag",
+        "Add to your ruby_lsp LSP config: init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }",
+      })
+    end
   else
     vim.health.info("Ruby LSP server is not active (open a Ruby file to start it)")
   end
