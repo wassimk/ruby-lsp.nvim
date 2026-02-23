@@ -1,5 +1,7 @@
 # ruby-lsp.nvim
 
+> **Warning:** This project is in active development and will very likely be broken for you. Use at your own risk.
+
 Neovim plugin that handles Ruby LSP client-side commands (`rubyLsp.*`) so code lens actions like **Run**, **Run In Terminal**, and **Debug** work natively in Neovim.
 
 ## The Problem
