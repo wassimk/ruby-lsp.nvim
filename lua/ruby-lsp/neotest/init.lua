@@ -1,23 +1,19 @@
+local nio = require("nio")
+
 local NeotestAdapter = { name = "ruby-lsp" }
 
----Perform an async LSP request using raw coroutines.
----Must be called from within a coroutine (neotest runs adapter methods in one).
+---Perform an async LSP request compatible with nio's coroutine scheduler.
 ---@param client vim.lsp.Client
 ---@param method string
 ---@param params table
 ---@param bufnr integer
 ---@return lsp.ResponseError? err
 ---@return any result
-local function lsp_request(client, method, params, bufnr)
-  local co = coroutine.running()
-  assert(co, "lsp_request must be called from a coroutine")
-
+local lsp_request = nio.wrap(function(client, method, params, bufnr, cb)
   client:request(method, params, function(err, result)
-    coroutine.resume(co, err, result)
+    cb(err, result)
   end, bufnr)
-
-  return coroutine.yield()
-end
+end, 5)
 
 ---Convert an LSP Range to a neotest range tuple.
 ---@param range lsp.Range
