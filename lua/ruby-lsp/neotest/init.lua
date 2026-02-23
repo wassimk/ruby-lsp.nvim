@@ -76,12 +76,13 @@ local function build_tree_list(items, file_path)
   return children
 end
 
----Recursively collect LSP test items from a neotest tree.
+---Recursively collect leaf test items from a neotest tree.
+---Only collects items with type "test", skipping namespaces.
 ---@param tree neotest.Tree
 ---@param items table[]
 local function collect_test_items(tree, items)
   local data = tree:data()
-  if data.lsp_test_item then
+  if data.type == "test" and data.lsp_test_item then
     table.insert(items, data.lsp_test_item)
   end
   for _, child in ipairs(tree:children()) do
@@ -162,11 +163,11 @@ function NeotestAdapter.build_spec(args)
   local tree = args.tree
 
   local items = {}
-  if position.type == "test" or position.type == "namespace" then
+  if position.type == "test" then
     if position.lsp_test_item then
       table.insert(items, position.lsp_test_item)
     end
-  elseif position.type == "file" then
+  else
     collect_test_items(tree, items)
   end
 
