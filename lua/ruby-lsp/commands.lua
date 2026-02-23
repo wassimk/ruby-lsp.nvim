@@ -6,22 +6,27 @@ local FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature f
   .. "Add to your ruby_lsp LSP config:\n"
   .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
 
----Build a minimal LSP test item from code lens arguments.
----@param file_path string
----@param test_id string
----@return table
-local function build_test_item(file_path, test_id)
-  return {
-    id = test_id,
-    label = test_id,
-    uri = vim.uri_from_fname(file_path),
-    range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } },
-    tags = {},
-    children = {},
-  }
+---Search a list of discovered test items (and their children) for a matching ID.
+---@param items table[]
+---@param target_id string
+---@return table|nil
+local function find_test_item(items, target_id)
+  for _, item in ipairs(items) do
+    if item.id == target_id then
+      return item
+    end
+    if item.children then
+      local found = find_test_item(item.children, target_id)
+      if found then
+        return found
+      end
+    end
+  end
+  return nil
 end
 
----Resolve the test command via rubyLsp/resolveTestCommands and run it.
+---Discover tests for a file, find the item matching test_id, resolve the
+---shell command via rubyLsp/resolveTestCommands, and run it.
 ---@param file_path string
 ---@param test_id string
 local function resolve_and_run(file_path, test_id)
@@ -32,16 +37,40 @@ local function resolve_and_run(file_path, test_id)
   end
 
   local client = clients[1]
-  local items = { build_test_item(file_path, test_id) }
+  local uri = vim.uri_from_fname(file_path)
 
-  client:request("rubyLsp/resolveTestCommands", { items = items }, function(err, result)
-    if err or not result or not result.commands or #result.commands == 0 then
-      vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+  client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
+    if err or not result or #result == 0 then
+      vim.notify("ruby-lsp: failed to discover tests", vim.log.levels.ERROR)
       return
     end
-    vim.schedule(function()
-      executor.run(result.commands[1], { file_path = file_path, test_id = test_id })
-    end)
+
+    local item = find_test_item(result, test_id)
+    if not item then
+      vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
+      return
+    end
+
+    local items = {
+      {
+        id = item.id,
+        label = item.label,
+        uri = item.uri,
+        range = item.range,
+        tags = item.tags or {},
+        children = {},
+      },
+    }
+
+    client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
+      if err2 or not result2 or not result2.commands or #result2.commands == 0 then
+        vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+        return
+      end
+      vim.schedule(function()
+        executor.run(result2.commands[1], { file_path = file_path, test_id = test_id })
+      end)
+    end, 0)
   end, 0)
 end
 
@@ -70,7 +99,7 @@ local function validate_test_args(command)
 end
 
 ---rubyLsp.runTest handler.
----Routes through neotest when available, otherwise falls back to the executor.
+---Routes through neotest when available, otherwise resolves and runs via the executor.
 ---@param command lsp.Command
 function M.run_test(command)
   local file_path, test_id = validate_test_args(command)

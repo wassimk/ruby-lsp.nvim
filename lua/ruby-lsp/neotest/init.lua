@@ -180,7 +180,7 @@ function NeotestAdapter.build_spec(args)
   end
 
   local client = clients[1]
-  local bufnr = vim.fn.bufnr(position.path)
+  local bufnr = nio.fn.bufnr(position.path)
   if bufnr == -1 then
     bufnr = 0
   end

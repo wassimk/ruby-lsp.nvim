@@ -165,25 +165,55 @@ function M.debug_test(command)
   end
 
   local client = clients[1]
-  local items = {
-    {
-      id = test_id,
-      label = test_id,
-      uri = vim.uri_from_fname(file_path),
-      range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } },
-      tags = {},
-      children = {},
-    },
-  }
+  local uri = vim.uri_from_fname(file_path)
 
-  client:request("rubyLsp/resolveTestCommands", { items = items }, function(err, result)
-    if err or not result or not result.commands or #result.commands == 0 then
-      vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+  client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
+    if err or not result or #result == 0 then
+      vim.notify("ruby-lsp: failed to discover tests", vim.log.levels.ERROR)
       return
     end
-    vim.schedule(function()
-      launch_dap(result.commands[1])
-    end)
+
+    local function find_item(items, target_id)
+      for _, item in ipairs(items) do
+        if item.id == target_id then
+          return item
+        end
+        if item.children then
+          local found = find_item(item.children, target_id)
+          if found then
+            return found
+          end
+        end
+      end
+      return nil
+    end
+
+    local item = find_item(result, test_id)
+    if not item then
+      vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
+      return
+    end
+
+    local items = {
+      {
+        id = item.id,
+        label = item.label,
+        uri = item.uri,
+        range = item.range,
+        tags = item.tags or {},
+        children = {},
+      },
+    }
+
+    client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
+      if err2 or not result2 or not result2.commands or #result2.commands == 0 then
+        vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+        return
+      end
+      vim.schedule(function()
+        launch_dap(result2.commands[1])
+      end)
+    end, 0)
   end, 0)
 end
 
