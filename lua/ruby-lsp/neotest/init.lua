@@ -103,7 +103,7 @@ function NeotestAdapter.is_test_file(file_path)
   if not file_path or not vim.endswith(file_path, ".rb") then
     return false
   end
-  local name = vim.fn.fnamemodify(file_path, ":t")
+  local name = file_path:match("[^/]+$") or ""
   return name:match("_test%.rb$") ~= nil
     or name:match("_spec%.rb$") ~= nil
     or name:match("^test_.*%.rb$") ~= nil
@@ -123,7 +123,7 @@ function NeotestAdapter.discover_positions(file_path)
     textDocument = { uri = vim.uri_from_fname(file_path) },
   }
 
-  local bufnr = vim.fn.bufnr(file_path)
+  local bufnr = nio.fn.bufnr(file_path)
   if bufnr == -1 then
     bufnr = 0
   end
@@ -134,12 +134,21 @@ function NeotestAdapter.discover_positions(file_path)
     return nil
   end
 
+  local last_line = 0
+  for _, item in ipairs(result) do
+    local end_line = item.range and item.range["end"] and item.range["end"].line or 0
+    if end_line > last_line then
+      last_line = end_line
+    end
+  end
+
   local tree_list = {
     {
       id = file_path,
       type = "file",
-      name = vim.fn.fnamemodify(file_path, ":t"),
+      name = nio.fn.fnamemodify(file_path, ":t"),
       path = file_path,
+      range = { 0, 0, last_line, 0 },
     },
   }
 
