@@ -79,4 +79,4 @@ require("ruby-lsp").setup({
 
 ## Acknowledgements
 
-Thank you to [Ruby LSP](https://github.com/Shopify/ruby-lsp) for making such an amazing product. This is not an official Ruby LSP project. This is just my work to make Ruby LSP work really well in Neovim.
+Thank you to [Ruby LSP](https://github.com/Shopify/ruby-lsp) for making such an amazing tool. This is not an official Ruby LSP project. This is just my work to make Ruby LSP work really well in Neovim.
