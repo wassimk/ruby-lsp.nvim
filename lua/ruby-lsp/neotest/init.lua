@@ -1,4 +1,5 @@
 local nio = require("nio")
+local utils = require("ruby-lsp.utils")
 
 local NeotestAdapter = { name = "ruby-lsp" }
 
@@ -53,14 +54,7 @@ local function build_tree_list(items, file_path)
         type = to_neotest_type(item),
         path = file_path,
         range = to_neotest_range(item.range),
-        lsp_test_item = {
-          id = item.id,
-          label = item.label,
-          uri = item.uri,
-          range = item.range,
-          tags = item.tags or {},
-          children = {},
-        },
+        lsp_test_item = utils.wrap_test_item(item),
       },
     }
 
@@ -113,12 +107,10 @@ end
 ---@param file_path string
 ---@return neotest.Tree|nil
 function NeotestAdapter.discover_positions(file_path)
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
-  if #clients == 0 then
+  local client = utils.get_client()
+  if not client then
     return nil
   end
-
-  local client = clients[1]
   local params = {
     textDocument = { uri = vim.uri_from_fname(file_path) },
   }
@@ -184,12 +176,10 @@ function NeotestAdapter.build_spec(args)
     return nil
   end
 
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
-  if #clients == 0 then
+  local client = utils.get_client()
+  if not client then
     return nil
   end
-
-  local client = clients[1]
   local bufnr = nio.fn.bufnr(position.path)
   if bufnr == -1 then
     bufnr = 0

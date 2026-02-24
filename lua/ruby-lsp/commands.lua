@@ -3,37 +3,17 @@ local utils = require("ruby-lsp.utils")
 
 local M = {}
 
----Search a list of discovered test items (and their children) for a matching ID.
----@param items table[]
----@param target_id string
----@return table|nil
-local function find_test_item(items, target_id)
-  for _, item in ipairs(items) do
-    if item.id == target_id then
-      return item
-    end
-    if item.children then
-      local found = find_test_item(item.children, target_id)
-      if found then
-        return found
-      end
-    end
-  end
-  return nil
-end
-
 ---Discover tests for a file, find the item matching test_id, resolve the
 ---shell command via rubyLsp/resolveTestCommands, and run it.
 ---@param file_path string
 ---@param test_id string
 local function resolve_and_run(file_path, test_id)
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
-  if #clients == 0 then
+  local client = utils.get_client()
+  if not client then
     vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
     return
   end
 
-  local client = clients[1]
   local uri = vim.uri_from_fname(file_path)
 
   client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
@@ -42,22 +22,13 @@ local function resolve_and_run(file_path, test_id)
       return
     end
 
-    local item = find_test_item(result, test_id)
+    local item = utils.find_test_item(result, test_id)
     if not item then
       vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
       return
     end
 
-    local items = {
-      {
-        id = item.id,
-        label = item.label,
-        uri = item.uri,
-        range = item.range,
-        tags = item.tags or {},
-        children = {},
-      },
-    }
+    local items = { utils.wrap_test_item(item) }
 
     client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
       if err2 or not result2 or not result2.commands or #result2.commands == 0 then
@@ -77,13 +48,13 @@ end
 ---@return string|nil file_path
 ---@return string|nil test_id
 local function validate_test_args(command)
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
-  if #clients == 0 then
+  local client = utils.get_client()
+  if not client then
     vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
     return nil, nil
   end
 
-  if not utils.full_test_discovery_enabled(clients[1]) then
+  if not utils.full_test_discovery_enabled(client) then
     vim.notify(utils.FEATURE_FLAG_MSG, vim.log.levels.WARN)
     return nil, nil
   end

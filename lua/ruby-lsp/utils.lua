@@ -13,4 +13,47 @@ function M.full_test_discovery_enabled(client)
   return flags.fullTestDiscovery == true
 end
 
+---Get the first active ruby_lsp client, or nil if none is running.
+---@return vim.lsp.Client|nil
+function M.get_client()
+  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  if #clients == 0 then
+    return nil
+  end
+  return clients[1]
+end
+
+---Recursively search a list of test items (and their children) for a matching ID.
+---@param items table[]
+---@param target_id string
+---@return table|nil
+function M.find_test_item(items, target_id)
+  for _, item in ipairs(items) do
+    if item.id == target_id then
+      return item
+    end
+    if item.children then
+      local found = M.find_test_item(item.children, target_id)
+      if found then
+        return found
+      end
+    end
+  end
+  return nil
+end
+
+---Build a test item wrapper suitable for rubyLsp/resolveTestCommands.
+---@param item table LSP test item
+---@return table
+function M.wrap_test_item(item)
+  return {
+    id = item.id,
+    label = item.label,
+    uri = item.uri,
+    range = item.range,
+    tags = item.tags or {},
+    children = {},
+  }
+end
+
 return M

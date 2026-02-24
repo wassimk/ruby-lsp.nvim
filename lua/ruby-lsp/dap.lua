@@ -141,13 +141,13 @@ function M.debug_test(command)
     return
   end
 
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
-  if #clients == 0 then
+  local client = utils.get_client()
+  if not client then
     vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
     return
   end
 
-  if not utils.full_test_discovery_enabled(clients[1]) then
+  if not utils.full_test_discovery_enabled(client) then
     vim.notify(utils.FEATURE_FLAG_MSG, vim.log.levels.WARN)
     return
   end
@@ -160,7 +160,6 @@ function M.debug_test(command)
     return
   end
 
-  local client = clients[1]
   local uri = vim.uri_from_fname(file_path)
 
   client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
@@ -169,37 +168,13 @@ function M.debug_test(command)
       return
     end
 
-    local function find_item(items, target_id)
-      for _, item in ipairs(items) do
-        if item.id == target_id then
-          return item
-        end
-        if item.children then
-          local found = find_item(item.children, target_id)
-          if found then
-            return found
-          end
-        end
-      end
-      return nil
-    end
-
-    local item = find_item(result, test_id)
+    local item = utils.find_test_item(result, test_id)
     if not item then
       vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
       return
     end
 
-    local items = {
-      {
-        id = item.id,
-        label = item.label,
-        uri = item.uri,
-        range = item.range,
-        tags = item.tags or {},
-        children = {},
-      },
-    }
+    local items = { utils.wrap_test_item(item) }
 
     client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
       if err2 or not result2 or not result2.commands or #result2.commands == 0 then
