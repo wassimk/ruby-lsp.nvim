@@ -33,6 +33,38 @@ function M.check()
         utils.FEATURE_FLAG_MSG,
       })
     end
+
+    -- Check for ruby-lsp-rspec addon in RSpec projects
+    local client = clients[1]
+    local deps_resp = client:request_sync("rubyLsp/workspace/dependencies", {
+      textDocument = { uri = "file://" .. (client.root_dir or "") },
+    }, 5000, 0)
+    if deps_resp and not deps_resp.err and deps_resp.result then
+      local has_rspec = false
+      local has_rspec_addon = false
+      for _, dep in ipairs(deps_resp.result) do
+        if dep.name == "rspec-core" then
+          has_rspec = true
+        elseif dep.name == "ruby-lsp-rspec" then
+          has_rspec_addon = true
+        end
+        if has_rspec and has_rspec_addon then
+          break
+        end
+      end
+      if has_rspec and has_rspec_addon then
+        vim.health.ok("ruby-lsp-rspec addon is installed")
+      elseif has_rspec then
+        vim.health.warn(
+          "RSpec is a project dependency but the ruby-lsp-rspec addon is not installed",
+          {
+            "Without ruby-lsp-rspec, test discovery and code lenses will not work for RSpec files.",
+            "Add to your Gemfile: gem \"ruby-lsp-rspec\", group: :development",
+            "Or add to .ruby-lsp/Gemfile: gem \"ruby-lsp-rspec\"",
+          }
+        )
+      end
+    end
   else
     vim.health.info("Ruby LSP server is not active (open a Ruby file to start it)")
   end
