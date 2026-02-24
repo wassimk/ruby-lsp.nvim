@@ -1,10 +1,7 @@
 local executor = require("ruby-lsp.executor")
+local utils = require("ruby-lsp.utils")
 
 local M = {}
-
-local FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n"
-  .. "Add to your ruby_lsp LSP config:\n"
-  .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
 
 ---Search a list of discovered test items (and their children) for a matching ID.
 ---@param items table[]
@@ -74,19 +71,24 @@ local function resolve_and_run(file_path, test_id)
   end, 0)
 end
 
----Validate that the command uses the fullTestDiscovery format.
----Returns file_path and test_id on success, or nil if the format is wrong.
+---Validate that fullTestDiscovery is enabled and extract test arguments.
+---Returns file_path and test_id on success, or nil if preconditions aren't met.
 ---@param command lsp.Command
 ---@return string|nil file_path
 ---@return string|nil test_id
 local function validate_test_args(command)
-  local args = command.arguments or {}
-
-  if args[3] then
-    vim.notify(FEATURE_FLAG_MSG, vim.log.levels.WARN)
+  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  if #clients == 0 then
+    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
     return nil, nil
   end
 
+  if not utils.full_test_discovery_enabled(clients[1]) then
+    vim.notify(utils.FEATURE_FLAG_MSG, vim.log.levels.WARN)
+    return nil, nil
+  end
+
+  local args = command.arguments or {}
   local file_path = args[1]
   local test_id = args[2]
 

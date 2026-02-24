@@ -1,10 +1,7 @@
 local config = require("ruby-lsp.config")
+local utils = require("ruby-lsp.utils")
 
 local M = {}
-
-local FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n"
-  .. "Add to your ruby_lsp LSP config:\n"
-  .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
 
 ---Register the rdbg DAP adapter if nvim-dap is available and no adapter is already set.
 function M.setup_adapter()
@@ -144,23 +141,22 @@ function M.debug_test(command)
     return
   end
 
-  local args = command.arguments or {}
-
-  if args[3] then
-    vim.notify(FEATURE_FLAG_MSG, vim.log.levels.WARN)
+  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  if #clients == 0 then
+    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
     return
   end
 
+  if not utils.full_test_discovery_enabled(clients[1]) then
+    vim.notify(utils.FEATURE_FLAG_MSG, vim.log.levels.WARN)
+    return
+  end
+
+  local args = command.arguments or {}
   local file_path = args[1]
   local test_id = args[2]
   if not file_path or not test_id then
     vim.notify("ruby-lsp: missing test arguments", vim.log.levels.ERROR)
-    return
-  end
-
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
-  if #clients == 0 then
-    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
     return
   end
 

@@ -1,3 +1,6 @@
+local config = require("ruby-lsp.config")
+local utils = require("ruby-lsp.utils")
+
 local M = {}
 
 function M.check()
@@ -8,14 +11,11 @@ function M.check()
   if #clients > 0 then
     vim.health.ok("Ruby LSP server is active (" .. #clients .. " client(s))")
 
-    local init_options = clients[1].config.init_options or {}
-    local flags = init_options.enabledFeatureFlags or {}
-    if flags.fullTestDiscovery then
+    if utils.full_test_discovery_enabled(clients[1]) then
       vim.health.ok("fullTestDiscovery feature flag is enabled")
     else
       vim.health.warn("fullTestDiscovery feature flag is not enabled", {
-        "Test discovery and code lens actions require this flag",
-        "Add to your ruby_lsp LSP config: init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }",
+        utils.FEATURE_FLAG_MSG,
       })
     end
   else
@@ -27,7 +27,6 @@ function M.check()
   if dap_ok then
     vim.health.ok("nvim-dap is installed")
 
-    local config = require("ruby-lsp.config")
     local adapter_name = config.get().dap.adapter
     if dap.adapters[adapter_name] then
       vim.health.ok("DAP adapter '" .. adapter_name .. "' is registered")
