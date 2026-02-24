@@ -104,12 +104,17 @@ function NeotestAdapter.is_test_file(file_path)
 end
 
 ---Discover test positions via the ruby-lsp language server.
+---Waits for server indexing to complete before making requests.
 ---@param file_path string
 ---@return neotest.Tree|nil
 function NeotestAdapter.discover_positions(file_path)
   local client = utils.get_client()
   if not client then
     return nil
+  end
+
+  while not utils.is_indexing_complete() do
+    nio.sleep(100)
   end
   local params = {
     textDocument = { uri = vim.uri_from_fname(file_path) },

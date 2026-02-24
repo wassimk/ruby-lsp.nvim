@@ -127,6 +127,7 @@ local function launch_dap(shell_cmd)
 end
 
 ---Handle rubyLsp.debugTest command.
+---Defers until indexing is complete to avoid stale cached results.
 ---@param command lsp.Command
 function M.debug_test(command)
   local client = utils.get_client()
@@ -148,32 +149,34 @@ function M.debug_test(command)
     return
   end
 
-  local uri = vim.uri_from_fname(file_path)
+  utils.after_indexing(function()
+    local uri = vim.uri_from_fname(file_path)
 
-  client:request('rubyLsp/discoverTests', { textDocument = { uri = uri } }, function(err, result)
-    if err or not result or #result == 0 then
-      vim.notify('ruby-lsp: failed to discover tests', vim.log.levels.ERROR)
-      return
-    end
-
-    local item = utils.find_test_item(result, test_id)
-    if not item then
-      vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
-      return
-    end
-
-    local items = { utils.wrap_test_item(item) }
-
-    client:request('rubyLsp/resolveTestCommands', { items = items }, function(err2, result2)
-      if err2 or not result2 or not result2.commands or #result2.commands == 0 then
-        vim.notify('ruby-lsp: failed to resolve test command', vim.log.levels.ERROR)
+    client:request('rubyLsp/discoverTests', { textDocument = { uri = uri } }, function(err, result)
+      if err or not result or #result == 0 then
+        vim.notify('ruby-lsp: failed to discover tests', vim.log.levels.ERROR)
         return
       end
-      vim.schedule(function()
-        launch_dap(result2.commands[1])
-      end)
+
+      local item = utils.find_test_item(result, test_id)
+      if not item then
+        vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
+        return
+      end
+
+      local items = { utils.wrap_test_item(item) }
+
+      client:request('rubyLsp/resolveTestCommands', { items = items }, function(err2, result2)
+        if err2 or not result2 or not result2.commands or #result2.commands == 0 then
+          vim.notify('ruby-lsp: failed to resolve test command', vim.log.levels.ERROR)
+          return
+        end
+        vim.schedule(function()
+          launch_dap(result2.commands[1])
+        end)
+      end, 0)
     end, 0)
-  end, 0)
+  end)
 end
 
 return M

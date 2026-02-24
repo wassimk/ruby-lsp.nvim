@@ -5,41 +5,44 @@ local M = {}
 
 ---Discover tests for a file, find the item matching test_id, resolve the
 ---shell command via rubyLsp/resolveTestCommands, and run it.
+---Defers until indexing is complete to avoid stale cached results.
 ---@param file_path string
 ---@param test_id string
 local function resolve_and_run(file_path, test_id)
-  local client = utils.get_client()
-  if not client then
-    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
-    return
-  end
-
-  local uri = vim.uri_from_fname(file_path)
-
-  client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
-    if err or not result or #result == 0 then
-      vim.notify("ruby-lsp: failed to discover tests", vim.log.levels.ERROR)
+  utils.after_indexing(function()
+    local client = utils.get_client()
+    if not client then
+      vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
       return
     end
 
-    local item = utils.find_test_item(result, test_id)
-    if not item then
-      vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
-      return
-    end
+    local uri = vim.uri_from_fname(file_path)
 
-    local items = { utils.wrap_test_item(item) }
-
-    client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
-      if err2 or not result2 or not result2.commands or #result2.commands == 0 then
-        vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+    client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
+      if err or not result or #result == 0 then
+        vim.notify("ruby-lsp: failed to discover tests", vim.log.levels.ERROR)
         return
       end
-      vim.schedule(function()
-        executor.run(result2.commands[1], { file_path = file_path, test_id = test_id })
-      end)
+
+      local item = utils.find_test_item(result, test_id)
+      if not item then
+        vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
+        return
+      end
+
+      local items = { utils.wrap_test_item(item) }
+
+      client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
+        if err2 or not result2 or not result2.commands or #result2.commands == 0 then
+          vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+          return
+        end
+        vim.schedule(function()
+          executor.run(result2.commands[1], { file_path = file_path, test_id = test_id })
+        end)
+      end, 0)
     end, 0)
-  end, 0)
+  end)
 end
 
 ---Validate that fullTestDiscovery is enabled and extract test arguments.
