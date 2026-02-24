@@ -24,7 +24,8 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 ## Requirements
 
 - Neovim >= 0.10
-- [ruby-lsp](https://github.com/Shopify/ruby-lsp) language server
+- [ruby-lsp](https://github.com/Shopify/ruby-lsp) >= 0.23.0
+- [ruby-lsp-rails](https://github.com/Shopify/ruby-lsp-rails) >= 0.4.0 (if using Rails)
 
 ### Optional
 

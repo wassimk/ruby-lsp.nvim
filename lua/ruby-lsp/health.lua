@@ -11,6 +11,21 @@ function M.check()
   if #clients > 0 then
     vim.health.ok("Ruby LSP server is active (" .. #clients .. " client(s))")
 
+    local server_info = clients[1].server_info
+    if server_info and server_info.version then
+      local version = server_info.version
+      if vim.version.cmp(version, utils.MIN_RUBY_LSP_VERSION) >= 0 then
+        vim.health.ok("Ruby LSP version " .. version)
+      else
+        vim.health.error(
+          "Ruby LSP version " .. version .. " is too old (minimum: " .. utils.MIN_RUBY_LSP_VERSION .. ")",
+          { "Update ruby-lsp: gem update ruby-lsp ruby-lsp-rails", "Then delete .ruby-lsp/ in your project to force a fresh bundle" }
+        )
+      end
+    else
+      vim.health.warn("Could not determine Ruby LSP server version")
+    end
+
     if utils.full_test_discovery_enabled(clients[1]) then
       vim.health.ok("fullTestDiscovery feature flag is enabled")
     else
