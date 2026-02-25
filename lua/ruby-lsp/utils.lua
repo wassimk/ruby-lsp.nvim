@@ -41,6 +41,47 @@ function M.after_indexing(fn)
   })
 end
 
+local rspec_addon_checked = false
+
+---Check if the project uses RSpec but is missing the ruby-lsp-rspec addon.
+---Notifies once per session when indexing completes.
+---@param client vim.lsp.Client
+function M.check_rspec_addon(client)
+  if rspec_addon_checked then
+    return
+  end
+  rspec_addon_checked = true
+
+  local attached_bufs = vim.lsp.get_buffers_by_client_id(client.id)
+  local bufnr = attached_bufs[1] or 0
+  client:request("rubyLsp/workspace/dependencies", vim.lsp.util.make_text_document_params(bufnr), function(err, result)
+    if err or not result then
+      return
+    end
+    local has_rspec = false
+    local has_addon = false
+    for _, dep in ipairs(result) do
+      if dep.name == "rspec-core" then
+        has_rspec = true
+      elseif dep.name == "ruby-lsp-rspec" then
+        has_addon = true
+      end
+      if has_rspec and has_addon then
+        return
+      end
+    end
+    if has_rspec and not has_addon then
+      vim.notify(
+        "ruby-lsp: RSpec detected but ruby-lsp-rspec addon is not installed.\n"
+          .. "Test discovery and code lenses will not work for RSpec files.\n"
+          .. "Add to your Gemfile: gem \"ruby-lsp-rspec\", require: false, group: :development\n"
+          .. "Run :checkhealth ruby-lsp for details.",
+        vim.log.levels.WARN
+      )
+    end
+  end, bufnr)
+end
+
 ---Check whether the fullTestDiscovery feature flag is enabled on a client.
 ---@param client vim.lsp.Client
 ---@return boolean

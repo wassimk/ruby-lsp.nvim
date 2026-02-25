@@ -36,10 +36,11 @@ function M.check()
 
     -- Check for ruby-lsp-rspec addon in RSpec projects
     local client = clients[1]
-    local deps_resp = client:request_sync("rubyLsp/workspace/dependencies", {
-      textDocument = { uri = "file://" .. (client.root_dir or "") },
-    }, 5000, 0)
-    if deps_resp and not deps_resp.err and deps_resp.result then
+    local attached_bufs = vim.lsp.get_buffers_by_client_id(client.id)
+    local deps_bufnr = attached_bufs[1] or 0
+    local ok, deps_resp = pcall(client.request_sync, client, "rubyLsp/workspace/dependencies",
+      vim.lsp.util.make_text_document_params(deps_bufnr), 5000, deps_bufnr)
+    if ok and deps_resp and not deps_resp.err and deps_resp.result then
       local has_rspec = false
       local has_rspec_addon = false
       for _, dep in ipairs(deps_resp.result) do
@@ -58,12 +59,17 @@ function M.check()
         vim.health.warn(
           "RSpec is a project dependency but the ruby-lsp-rspec addon is not installed",
           {
-            "Without ruby-lsp-rspec, test discovery and code lenses will not work for RSpec files.",
-            "Add to your Gemfile: gem \"ruby-lsp-rspec\", group: :development",
-            "Or add to .ruby-lsp/Gemfile: gem \"ruby-lsp-rspec\"",
+            "The ruby-lsp server has no built-in RSpec support. Without the ruby-lsp-rspec addon,",
+            "test discovery, code lenses, and test running will not work for RSpec files.",
+            "Install: gem \"ruby-lsp-rspec\", require: false, group: :development",
+            "See: https://github.com/st0012/ruby-lsp-rspec",
           }
         )
+      else
+        vim.health.ok("No RSpec dependency detected (Minitest/Test::Unit project)")
       end
+    else
+      vim.health.info("Could not query workspace dependencies (server may still be loading)")
     end
   else
     vim.health.info("Ruby LSP server is not active (open a Ruby file to start it)")
