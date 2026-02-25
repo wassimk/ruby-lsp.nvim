@@ -196,17 +196,37 @@ function NeotestAdapter.build_spec(args)
     return nil
   end
 
+  -- Extract framework from the first test item's tags (e.g. "framework:rspec")
+  local framework
+  local tags = items[1].tags
+  if tags then
+    for _, tag in ipairs(tags) do
+      local fw = tag:match("^framework:(.*)")
+      if fw then
+        framework = fw
+        break
+      end
+    end
+  end
+
   return {
     command = vim.split(result.commands[1], " "),
-    context = { pos_id = position.id },
+    context = { pos_id = position.id, framework = framework },
   }
+end
+
+---Strip ANSI escape sequences from a string.
+---@param s string
+---@return string
+local function strip_ansi(s)
+  return s:gsub("\27%[[%d;]*m", "")
 end
 
 ---Parse Minitest output to extract failed test IDs.
 ---Looks for "N) Failure:" or "N) Error:" markers followed by "ClassName#test_method".
 ---@param output_path string
 ---@return table<string, boolean>
-local function parse_failed_tests(output_path)
+local function parse_minitest_failures(output_path)
   local failed = {}
   local f = io.open(output_path, "r")
   if not f then
@@ -214,7 +234,8 @@ local function parse_failed_tests(output_path)
   end
 
   local in_failure = false
-  for line in f:lines() do
+  for raw_line in f:lines() do
+    local line = strip_ansi(raw_line)
     if line:match("^%s*%d+%) Failure:") or line:match("^%s*%d+%) Error:") then
       in_failure = true
     elseif in_failure then
@@ -232,22 +253,57 @@ local function parse_failed_tests(output_path)
   return failed
 end
 
+---Parse RSpec output to extract failed test line numbers.
+---Reads the "Failed examples:" section and extracts file:line pairs.
+---Returns 0-indexed line numbers to match LSP range convention.
+---@param output_path string
+---@return table<integer, boolean>
+local function parse_rspec_failures(output_path)
+  local failed_lines = {}
+  local f = io.open(output_path, "r")
+  if not f then
+    return failed_lines
+  end
+
+  local in_failed_examples = false
+  for raw_line in f:lines() do
+    local line = strip_ansi(raw_line)
+    if line:match("^Failed examples:") then
+      in_failed_examples = true
+    elseif in_failed_examples then
+      local line_num = line:match("^rspec %S+:(%d+)")
+      if line_num then
+        failed_lines[tonumber(line_num) - 1] = true
+      end
+    end
+  end
+
+  f:close()
+  return failed_lines
+end
+
 ---Recursively mark each leaf test node with its result.
 ---@param node neotest.Tree
----@param failed table<string, boolean>
+---@param failed table<string|integer, boolean> Failed test IDs (Minitest) or 0-indexed line numbers (RSpec)
+---@param framework string|nil "rspec" or "minitest"
 ---@param output string
 ---@param results table<string, neotest.Result>
-local function assign_test_results(node, failed, output, results)
+local function assign_test_results(node, failed, framework, output, results)
   local data = node:data()
-  if data.type == "test" then
-    local test_failed = data.lsp_test_item and failed[data.lsp_test_item.id] or false
+  if data.type == "test" and data.lsp_test_item then
+    local test_failed
+    if framework == "rspec" then
+      test_failed = data.lsp_test_item.range and failed[data.lsp_test_item.range.start.line] or false
+    else
+      test_failed = failed[data.lsp_test_item.id] or false
+    end
     results[data.id] = {
       status = test_failed and "failed" or "passed",
       output = output,
     }
   end
   for _, child in ipairs(node:children()) do
-    assign_test_results(child, failed, output, results)
+    assign_test_results(child, failed, framework, output, results)
   end
 end
 
@@ -259,15 +315,20 @@ end
 function NeotestAdapter.results(spec, result, tree)
   local results = {}
   local pos_id = spec.context.pos_id
+  local framework = spec.context.framework
 
   if result.code == 0 then
     -- All tests passed — mark every leaf
-    assign_test_results(tree, {}, result.output, results)
+    assign_test_results(tree, {}, framework, result.output, results)
   else
-    -- Parse output to identify which specific tests failed
-    local failed = parse_failed_tests(result.output)
+    local failed
+    if framework == "rspec" then
+      failed = parse_rspec_failures(result.output)
+    else
+      failed = parse_minitest_failures(result.output)
+    end
     if next(failed) then
-      assign_test_results(tree, failed, result.output, results)
+      assign_test_results(tree, failed, framework, result.output, results)
     else
       -- Could not parse individual failures — fall back to marking parent
       results[pos_id] = { status = "failed", output = result.output }
