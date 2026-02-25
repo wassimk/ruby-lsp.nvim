@@ -94,6 +94,9 @@ function NeotestAdapter.filter_dir(name)
 end
 
 function NeotestAdapter.is_test_file(file_path)
+  if not utils.get_client() then
+    return false
+  end
   if not file_path or not vim.endswith(file_path, ".rb") then
     return false
   end
