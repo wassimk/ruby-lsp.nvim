@@ -73,6 +73,8 @@ local function run_toggleterm(cmd)
       cmd = cmd,
       close_on_exit = cfg.close_on_exit,
       direction = cfg.direction,
+      -- When close_on_exit is false, auto-close on success so the terminal
+      -- only stays open when tests fail (letting the user inspect output).
       on_exit = function(terminal, _, exit_code)
         if exit_code == 0 and not cfg.close_on_exit then
           terminal:close()
