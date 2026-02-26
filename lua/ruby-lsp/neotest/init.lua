@@ -116,8 +116,15 @@ function NeotestAdapter.discover_positions(file_path)
     return nil
   end
 
+  local timeout_ms = 30000
+  local elapsed = 0
   while not utils.is_indexing_complete() do
+    if elapsed >= timeout_ms then
+      vim.notify("ruby-lsp: timed out waiting for server indexing", vim.log.levels.WARN)
+      return nil
+    end
     nio.sleep(100)
+    elapsed = elapsed + 100
   end
   local params = {
     textDocument = { uri = vim.uri_from_fname(file_path) },
