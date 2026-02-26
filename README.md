@@ -64,6 +64,11 @@ require("ruby-lsp").setup({
     close_on_exit = false,
   },
 
+  -- Task runner options (e.g., migrations)
+  task = {
+    keep_open = true, -- keep terminal open after task completes
+  },
+
   -- DAP configuration
   dap = {
     auto_configure = true, -- register rdbg adapter if nvim-dap is available

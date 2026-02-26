@@ -13,6 +13,10 @@ local defaults = {
     close_on_exit = false,
   },
 
+  task = {
+    keep_open = true,
+  },
+
   dap = {
     auto_configure = true,
     adapter = "ruby",

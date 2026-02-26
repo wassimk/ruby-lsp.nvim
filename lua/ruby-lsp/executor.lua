@@ -59,13 +59,15 @@ end
 
 ---Run command via toggleterm.
 ---@param cmd string
-local function run_toggleterm(cmd)
+---@param opts? {keep_open?: boolean}
+local function run_toggleterm(cmd, opts)
   local ok, Terminal = pcall(require, "toggleterm.terminal")
   if not ok then
     vim.notify("toggleterm.nvim is not installed", vim.log.levels.ERROR)
     return
   end
 
+  opts = opts or {}
   local cfg = config.get().toggleterm
 
   Terminal.Terminal
@@ -75,8 +77,9 @@ local function run_toggleterm(cmd)
       direction = cfg.direction,
       -- When close_on_exit is false, auto-close on success so the terminal
       -- only stays open when tests fail (letting the user inspect output).
+      -- Tasks (e.g., migrations) pass keep_open to always show output.
       on_exit = function(terminal, _, exit_code)
-        if exit_code == 0 and not cfg.close_on_exit then
+        if not opts.keep_open and exit_code == 0 and not cfg.close_on_exit then
           terminal:close()
         end
       end,
@@ -86,7 +89,7 @@ end
 
 ---Run a shell command using the configured executor.
 ---@param cmd string
----@param opts? {file_path?: string, test_id?: string}
+---@param opts? {file_path?: string, test_id?: string, keep_open?: boolean}
 function M.run(cmd, opts)
   opts = opts or {}
   local executor = config.get().executor
@@ -94,7 +97,7 @@ function M.run(cmd, opts)
   if type(executor) == "function" then
     executor(cmd, opts)
   elseif executor == "toggleterm" then
-    run_toggleterm(cmd)
+    run_toggleterm(cmd, opts)
   else
     run_split(cmd)
   end

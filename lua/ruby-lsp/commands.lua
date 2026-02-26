@@ -163,7 +163,8 @@ function M.run_task(command)
     return
   end
 
-  executor.run(cmd)
+  local cfg = require("ruby-lsp.config").get()
+  executor.run(cmd, { keep_open = cfg.task.keep_open })
 end
 
 return M
