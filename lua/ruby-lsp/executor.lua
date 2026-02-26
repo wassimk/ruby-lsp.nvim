@@ -84,7 +84,7 @@ end
 
 ---Run a shell command using the configured executor.
 ---@param cmd string
----@param opts? {file_path?: string, test_id?: string, test_name?: string}
+---@param opts? {file_path?: string, test_id?: string}
 function M.run(cmd, opts)
   opts = opts or {}
   local executor = config.get().executor

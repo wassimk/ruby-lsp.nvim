@@ -1,8 +1,6 @@
 local M = {}
 
 M.MIN_RUBY_LSP_VERSION = "0.23.0"
-M.MIN_RUBY_LSP_RAILS_VERSION = "0.4.0"
-
 M.FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n"
   .. "Add to your ruby_lsp LSP config:\n"
   .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
