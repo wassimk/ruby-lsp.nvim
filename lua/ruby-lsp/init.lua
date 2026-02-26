@@ -23,7 +23,7 @@ function M.setup(opts)
       end
       local token = ev.data.params.token
       local value = ev.data.params.value
-      if token == "indexing-progress" and value.kind == "end" then
+      if token == "indexing-progress" and value and value.kind == "end" then
         utils.on_indexing_complete(client.id)
         utils.check_rspec_addon(client)
       end
