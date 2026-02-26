@@ -130,26 +130,18 @@ end
 ---Defers until indexing is complete to avoid stale cached results.
 ---@param command lsp.Command
 function M.debug_test(command)
-  local client = utils.get_client()
-  if not client then
-    vim.notify('ruby-lsp: no ruby_lsp client found', vim.log.levels.ERROR)
-    return
-  end
-
-  if not utils.full_test_discovery_enabled(client) then
-    vim.notify(utils.FEATURE_FLAG_MSG, vim.log.levels.WARN)
-    return
-  end
-
-  local args = command.arguments or {}
-  local file_path = args[1]
-  local test_id = args[2]
-  if not file_path or not test_id then
-    vim.notify('ruby-lsp: missing test arguments', vim.log.levels.ERROR)
+  local file_path, test_id = utils.validate_test_args(command)
+  if not file_path then
     return
   end
 
   utils.after_indexing(function()
+    local client = utils.get_client()
+    if not client then
+      vim.notify('ruby-lsp: no ruby_lsp client found', vim.log.levels.ERROR)
+      return
+    end
+
     local uri = vim.uri_from_fname(file_path)
 
     client:request('rubyLsp/discoverTests', { textDocument = { uri = uri } }, function(err, result)

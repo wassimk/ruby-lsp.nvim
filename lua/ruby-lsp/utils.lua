@@ -132,4 +132,33 @@ function M.wrap_test_item(item)
   }
 end
 
+---Validate that fullTestDiscovery is enabled and extract test arguments.
+---Returns file_path and test_id on success, or nil if preconditions aren't met.
+---@param command lsp.Command
+---@return string|nil file_path
+---@return string|nil test_id
+function M.validate_test_args(command)
+  local client = M.get_client()
+  if not client then
+    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
+    return nil, nil
+  end
+
+  if not M.full_test_discovery_enabled(client) then
+    vim.notify(M.FEATURE_FLAG_MSG, vim.log.levels.WARN)
+    return nil, nil
+  end
+
+  local args = command.arguments or {}
+  local file_path = args[1]
+  local test_id = args[2]
+
+  if not file_path or not test_id then
+    vim.notify("ruby-lsp: missing test arguments", vim.log.levels.ERROR)
+    return nil, nil
+  end
+
+  return file_path, test_id
+end
+
 return M

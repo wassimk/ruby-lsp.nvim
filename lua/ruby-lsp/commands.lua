@@ -45,40 +45,11 @@ local function resolve_and_run(file_path, test_id)
   end)
 end
 
----Validate that fullTestDiscovery is enabled and extract test arguments.
----Returns file_path and test_id on success, or nil if preconditions aren't met.
----@param command lsp.Command
----@return string|nil file_path
----@return string|nil test_id
-local function validate_test_args(command)
-  local client = utils.get_client()
-  if not client then
-    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
-    return nil, nil
-  end
-
-  if not utils.full_test_discovery_enabled(client) then
-    vim.notify(utils.FEATURE_FLAG_MSG, vim.log.levels.WARN)
-    return nil, nil
-  end
-
-  local args = command.arguments or {}
-  local file_path = args[1]
-  local test_id = args[2]
-
-  if not file_path or not test_id then
-    vim.notify("ruby-lsp: missing test arguments", vim.log.levels.ERROR)
-    return nil, nil
-  end
-
-  return file_path, test_id
-end
-
 ---rubyLsp.runTest handler.
 ---Routes through neotest when available, otherwise resolves and runs via the executor.
 ---@param command lsp.Command
 function M.run_test(command)
-  local file_path, test_id = validate_test_args(command)
+  local file_path, test_id = utils.validate_test_args(command)
   if not file_path then
     return
   end
@@ -96,7 +67,7 @@ end
 ---Always runs via the executor (never routes through neotest).
 ---@param command lsp.Command
 function M.run_test_terminal(command)
-  local file_path, test_id = validate_test_args(command)
+  local file_path, test_id = utils.validate_test_args(command)
   if not file_path then
     return
   end
