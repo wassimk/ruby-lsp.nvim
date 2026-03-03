@@ -22,13 +22,13 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 
 - Neovim >= 0.10
 - [ruby-lsp](https://github.com/Shopify/ruby-lsp) >= 0.23.0
-- [ruby-lsp-rspec](https://github.com/st0012/ruby-lsp-rspec) (if using Rails with RSpec)
 
 ### Optional
 
-- [nvim-dap](https://github.com/mfussenegger/nvim-dap) for `rubyLsp.debugTest` support
-- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) for the `toggleterm` executor
-- [neotest](https://github.com/nvim-neotest/neotest) for neotest integration
+- [ruby-lsp-rspec](https://github.com/st0012/ruby-lsp-rspec) for RSpec test discovery
+- [nvim-dap](https://github.com/mfussenegger/nvim-dap) for debug support
+- [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) for running tests in toggleterm, otherwise falls back to split terminal
+- [neotest](https://github.com/nvim-neotest/neotest) for running tests through neotest instead of the terminal
 
 ## Installation
 
