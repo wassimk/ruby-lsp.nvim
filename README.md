@@ -78,6 +78,8 @@ Run `:checkhealth ruby-lsp` to verify the server is running and the feature flag
 
 ## Plugin Options
 
+These are the defaults. No changes are necessary unless you want to customize behavior.
+
 ```lua
 require("ruby-lsp").setup({
   -- How to run tests in terminal.

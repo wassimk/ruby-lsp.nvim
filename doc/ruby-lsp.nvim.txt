@@ -122,6 +122,9 @@ flag is enabled.
 
 PLUGIN OPTIONS                    *ruby-lsp.nvim-ruby-lsp.nvim-plugin-options*
 
+These are the defaults. No changes are necessary unless you want to customize
+behavior.
+
 >lua
     require("ruby-lsp").setup({
       -- How to run tests in terminal.
