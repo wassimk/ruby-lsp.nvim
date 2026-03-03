@@ -76,7 +76,7 @@ require("lspconfig").ruby_lsp.setup({
 
 Run `:checkhealth ruby-lsp` to verify the server is running and the feature flag is enabled.
 
-## Configuration
+## Plugin Options
 
 ```lua
 require("ruby-lsp").setup({

@@ -9,7 +9,7 @@ Table of Contents                            *ruby-lsp.nvim-table-of-contents*
   - Requirements                    |ruby-lsp.nvim-ruby-lsp.nvim-requirements|
   - Installation                    |ruby-lsp.nvim-ruby-lsp.nvim-installation|
   - Ruby LSP Server Setup  |ruby-lsp.nvim-ruby-lsp.nvim-ruby-lsp-server-setup|
-  - Configuration                  |ruby-lsp.nvim-ruby-lsp.nvim-configuration|
+  - Plugin Options                |ruby-lsp.nvim-ruby-lsp.nvim-plugin-options|
   - Neotest Integration      |ruby-lsp.nvim-ruby-lsp.nvim-neotest-integration|
   - Health Check                    |ruby-lsp.nvim-ruby-lsp.nvim-health-check|
   - Development                      |ruby-lsp.nvim-ruby-lsp.nvim-development|
@@ -120,7 +120,7 @@ Run `:checkhealth ruby-lsp` to verify the server is running and the feature
 flag is enabled.
 
 
-CONFIGURATION                      *ruby-lsp.nvim-ruby-lsp.nvim-configuration*
+PLUGIN OPTIONS                    *ruby-lsp.nvim-ruby-lsp.nvim-plugin-options*
 
 >lua
     require("ruby-lsp").setup({
