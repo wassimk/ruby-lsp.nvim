@@ -28,6 +28,7 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 
 - [nvim-dap](https://github.com/mfussenegger/nvim-dap) for `rubyLsp.debugTest` support
 - [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) for the `toggleterm` executor
+- [neotest](https://github.com/nvim-neotest/neotest) for neotest integration
 
 ## Installation
 
@@ -71,6 +72,20 @@ require("ruby-lsp").setup({
   dap = {
     auto_configure = true, -- register rdbg adapter if nvim-dap is available
     adapter = "ruby",      -- DAP adapter type name
+  },
+})
+```
+
+## Neotest Integration
+
+This plugin includes a [neotest](https://github.com/nvim-neotest/neotest) adapter that uses Ruby LSP for test discovery and command resolution. When neotest is installed, the **Run** code lens (`rubyLsp.runTest`) automatically routes tests through neotest instead of the terminal executor. The **Run In Terminal** code lens always uses the terminal executor regardless of neotest.
+
+To enable it, register the adapter in your neotest setup:
+
+```lua
+require("neotest").setup({
+  adapters = {
+    require("ruby-lsp.neotest"),
   },
 })
 ```

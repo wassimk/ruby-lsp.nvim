@@ -9,6 +9,7 @@ Table of Contents                            *ruby-lsp.nvim-table-of-contents*
   - Requirements                    |ruby-lsp.nvim-ruby-lsp.nvim-requirements|
   - Installation                    |ruby-lsp.nvim-ruby-lsp.nvim-installation|
   - Configuration                  |ruby-lsp.nvim-ruby-lsp.nvim-configuration|
+  - Neotest Integration      |ruby-lsp.nvim-ruby-lsp.nvim-neotest-integration|
   - Health Check                    |ruby-lsp.nvim-ruby-lsp.nvim-health-check|
   - Development                      |ruby-lsp.nvim-ruby-lsp.nvim-development|
   - Acknowledgements            |ruby-lsp.nvim-ruby-lsp.nvim-acknowledgements|
@@ -63,6 +64,7 @@ OPTIONAL ~
 
 - nvim-dap <https://github.com/mfussenegger/nvim-dap> for `rubyLsp.debugTest` support
 - toggleterm.nvim <https://github.com/akinsho/toggleterm.nvim> for the `toggleterm` executor
+- neotest <https://github.com/nvim-neotest/neotest> for neotest integration
 
 
 INSTALLATION                        *ruby-lsp.nvim-ruby-lsp.nvim-installation*
@@ -108,6 +110,25 @@ CONFIGURATION                      *ruby-lsp.nvim-ruby-lsp.nvim-configuration*
       dap = {
         auto_configure = true, -- register rdbg adapter if nvim-dap is available
         adapter = "ruby",      -- DAP adapter type name
+      },
+    })
+<
+
+
+NEOTEST INTEGRATION          *ruby-lsp.nvim-ruby-lsp.nvim-neotest-integration*
+
+This plugin includes a neotest <https://github.com/nvim-neotest/neotest>
+adapter that uses Ruby LSP for test discovery and command resolution. When
+neotest is installed, the **Run** code lens (`rubyLsp.runTest`) automatically
+routes tests through neotest instead of the terminal executor. The **Run In
+Terminal** code lens always uses the terminal executor regardless of neotest.
+
+To enable it, register the adapter in your neotest setup:
+
+>lua
+    require("neotest").setup({
+      adapters = {
+        require("ruby-lsp.neotest"),
       },
     })
 <
