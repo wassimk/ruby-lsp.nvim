@@ -43,6 +43,34 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
+## Ruby LSP Server Setup
+
+This plugin handles client-side commands and neotest integration. You still need to configure the Ruby LSP server yourself in your Neovim LSP setup. The `fullTestDiscovery` feature flag must be enabled for code lens and test discovery to work.
+
+With `vim.lsp.config` (Neovim >= 0.11):
+
+```lua
+vim.lsp.config("ruby_lsp", {
+  init_options = {
+    enabledFeatureFlags = { fullTestDiscovery = true },
+  },
+})
+
+vim.lsp.enable("ruby_lsp")
+```
+
+With [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig):
+
+```lua
+require("lspconfig").ruby_lsp.setup({
+  init_options = {
+    enabledFeatureFlags = { fullTestDiscovery = true },
+  },
+})
+```
+
+Run `:checkhealth ruby-lsp` to verify the server is running and the feature flag is enabled.
+
 ## Configuration
 
 ```lua
@@ -79,6 +107,8 @@ require("ruby-lsp").setup({
 ## Neotest Integration
 
 This plugin includes a [neotest](https://github.com/nvim-neotest/neotest) adapter that uses Ruby LSP for test discovery and command resolution. When neotest is installed, the **Run** code lens (`rubyLsp.runTest`) automatically routes tests through neotest instead of the terminal executor. The **Run In Terminal** code lens always uses the terminal executor regardless of neotest.
+
+The `fullTestDiscovery` feature flag must be enabled in your Ruby LSP server configuration (see [Ruby LSP Server Setup](#ruby-lsp-server-setup)) for test discovery to work.
 
 To enable it, register the adapter in your neotest setup:
 
