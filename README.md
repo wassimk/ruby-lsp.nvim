@@ -25,7 +25,12 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 
 ### Optional
 
+For RSpec projects, add to your Gemfile:
+
 - [ruby-lsp-rspec](https://github.com/st0012/ruby-lsp-rspec) for RSpec test discovery (Minitest is supported by default)
+
+Neovim plugins:
+
 - [nvim-dap](https://github.com/mfussenegger/nvim-dap) for debug support
 - [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) for running tests in toggleterm, otherwise falls back to split terminal
 - [neotest](https://github.com/nvim-neotest/neotest) for running tests through neotest instead of the terminal
