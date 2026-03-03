@@ -1,7 +1,7 @@
-local nio = require("nio")
-local utils = require("ruby-lsp.utils")
+local nio = require('nio')
+local utils = require('ruby-lsp.utils')
 
-local NeotestAdapter = { name = "ruby-lsp" }
+local NeotestAdapter = { name = 'ruby-lsp' }
 
 ---Perform an async LSP request compatible with nio's coroutine scheduler.
 ---@param client vim.lsp.Client
@@ -23,8 +23,8 @@ local function to_neotest_range(range)
   return {
     range.start.line,
     range.start.character,
-    range["end"].line,
-    range["end"].character,
+    range['end'].line,
+    range['end'].character,
   }
 end
 
@@ -34,9 +34,9 @@ end
 ---@return string
 local function to_neotest_type(item)
   if item.children and #item.children > 0 then
-    return "namespace"
+    return 'namespace'
   end
-  return "test"
+  return 'test'
 end
 
 ---Recursively build a nested list structure for neotest Tree.from_list.
@@ -49,7 +49,7 @@ local function build_tree_list(items, file_path)
   for _, item in ipairs(items) do
     local node = {
       {
-        id = file_path .. "::" .. item.id,
+        id = file_path .. '::' .. item.id,
         name = item.label,
         type = to_neotest_type(item),
         path = file_path,
@@ -76,7 +76,7 @@ end
 ---@param items table[]
 local function collect_test_items(tree, items)
   local data = tree:data()
-  if data.type == "test" and data.lsp_test_item then
+  if data.type == 'test' and data.lsp_test_item then
     table.insert(items, data.lsp_test_item)
   end
   for _, child in ipairs(tree:children()) do
@@ -85,11 +85,11 @@ local function collect_test_items(tree, items)
 end
 
 function NeotestAdapter.root(dir)
-  return vim.fs.root(dir, { "Gemfile", ".ruby-version", ".git" })
+  return vim.fs.root(dir, { 'Gemfile', '.ruby-version', '.git' })
 end
 
 function NeotestAdapter.filter_dir(name)
-  local skip = { vendor = true, node_modules = true, [".bundle"] = true, [".git"] = true }
+  local skip = { vendor = true, node_modules = true, ['.bundle'] = true, ['.git'] = true }
   return not skip[name]
 end
 
@@ -97,13 +97,11 @@ function NeotestAdapter.is_test_file(file_path)
   if not utils.get_client() then
     return false
   end
-  if not file_path or not vim.endswith(file_path, ".rb") then
+  if not file_path or not vim.endswith(file_path, '.rb') then
     return false
   end
-  local name = file_path:match("[^/]+$") or ""
-  return name:match("_test%.rb$") ~= nil
-    or name:match("_spec%.rb$") ~= nil
-    or name:match("^test_.*%.rb$") ~= nil
+  local name = file_path:match('[^/]+$') or ''
+  return name:match('_test%.rb$') ~= nil or name:match('_spec%.rb$') ~= nil or name:match('^test_.*%.rb$') ~= nil
 end
 
 ---Discover test positions via the ruby-lsp language server.
@@ -120,7 +118,7 @@ function NeotestAdapter.discover_positions(file_path)
   local elapsed = 0
   while not utils.is_indexing_complete() do
     if elapsed >= timeout_ms then
-      vim.notify("ruby-lsp: timed out waiting for server indexing", vim.log.levels.WARN)
+      vim.notify('ruby-lsp: timed out waiting for server indexing', vim.log.levels.WARN)
       return nil
     end
     nio.sleep(100)
@@ -135,15 +133,15 @@ function NeotestAdapter.discover_positions(file_path)
     bufnr = 0
   end
 
-  local err, result = lsp_request(client, "rubyLsp/discoverTests", params, bufnr)
+  local err, result = lsp_request(client, 'rubyLsp/discoverTests', params, bufnr)
 
-  if err or not result or type(result) ~= "table" or #result == 0 then
+  if err or not result or type(result) ~= 'table' or #result == 0 then
     return nil
   end
 
   local last_line = 0
   for _, item in ipairs(result) do
-    local end_line = item.range and item.range["end"] and item.range["end"].line or 0
+    local end_line = item.range and item.range['end'] and item.range['end'].line or 0
     if end_line > last_line then
       last_line = end_line
     end
@@ -152,8 +150,8 @@ function NeotestAdapter.discover_positions(file_path)
   local tree_list = {
     {
       id = file_path,
-      type = "file",
-      name = nio.fn.fnamemodify(file_path, ":t"),
+      type = 'file',
+      name = nio.fn.fnamemodify(file_path, ':t'),
       path = file_path,
       range = { 0, 0, last_line, 0 },
     },
@@ -164,7 +162,7 @@ function NeotestAdapter.discover_positions(file_path)
     table.insert(tree_list, child)
   end
 
-  local Tree = require("neotest.types").Tree
+  local Tree = require('neotest.types').Tree
   return Tree.from_list(tree_list, function(pos)
     return pos.id
   end)
@@ -179,7 +177,7 @@ function NeotestAdapter.build_spec(args)
   local tree = args.tree
 
   local items = {}
-  if position.type == "test" then
+  if position.type == 'test' then
     if position.lsp_test_item then
       table.insert(items, position.lsp_test_item)
     end
@@ -200,7 +198,7 @@ function NeotestAdapter.build_spec(args)
     bufnr = 0
   end
 
-  local err, result = lsp_request(client, "rubyLsp/resolveTestCommands", { items = items }, bufnr)
+  local err, result = lsp_request(client, 'rubyLsp/resolveTestCommands', { items = items }, bufnr)
 
   if err or not result or not result.commands or #result.commands == 0 then
     return nil
@@ -211,7 +209,7 @@ function NeotestAdapter.build_spec(args)
   local tags = items[1].tags
   if tags then
     for _, tag in ipairs(tags) do
-      local fw = tag:match("^framework:(.*)")
+      local fw = tag:match('^framework:(.*)')
       if fw then
         framework = fw
         break
@@ -220,7 +218,7 @@ function NeotestAdapter.build_spec(args)
   end
 
   return {
-    command = vim.split(result.commands[1], " "),
+    command = vim.split(result.commands[1], ' '),
     context = { pos_id = position.id, framework = framework },
   }
 end
@@ -229,7 +227,7 @@ end
 ---@param s string
 ---@return string
 local function strip_ansi(s)
-  return s:gsub("\27%[[%d;]*m", "")
+  return s:gsub('\27%[[%d;]*m', '')
 end
 
 ---Parse Minitest output to extract failed test IDs.
@@ -238,7 +236,7 @@ end
 ---@return table<string, boolean>
 local function parse_minitest_failures(output_path)
   local failed = {}
-  local f = io.open(output_path, "r")
+  local f = io.open(output_path, 'r')
   if not f then
     return failed
   end
@@ -246,13 +244,13 @@ local function parse_minitest_failures(output_path)
   local in_failure = false
   for raw_line in f:lines() do
     local line = strip_ansi(raw_line)
-    if line:match("^%s*%d+%) Failure:") or line:match("^%s*%d+%) Error:") then
+    if line:match('^%s*%d+%) Failure:') or line:match('^%s*%d+%) Error:') then
       in_failure = true
     elseif in_failure then
-      local test_id = line:match("^(%S+#%S+)")
+      local test_id = line:match('^(%S+#%S+)')
       if test_id then
         -- Strip trailing " [file:line]:" portion
-        test_id = test_id:match("^([^%[]+)")
+        test_id = test_id:match('^([^%[]+)')
         failed[test_id] = true
       end
       in_failure = false
@@ -270,7 +268,7 @@ end
 ---@return table<integer, boolean>
 local function parse_rspec_failures(output_path)
   local failed_lines = {}
-  local f = io.open(output_path, "r")
+  local f = io.open(output_path, 'r')
   if not f then
     return failed_lines
   end
@@ -278,10 +276,10 @@ local function parse_rspec_failures(output_path)
   local in_failed_examples = false
   for raw_line in f:lines() do
     local line = strip_ansi(raw_line)
-    if line:match("^Failed examples:") then
+    if line:match('^Failed examples:') then
       in_failed_examples = true
     elseif in_failed_examples then
-      local line_num = line:match("^rspec %S+:(%d+)")
+      local line_num = line:match('^rspec %S+:(%d+)')
       if line_num then
         failed_lines[tonumber(line_num) - 1] = true
       end
@@ -300,15 +298,15 @@ end
 ---@param results table<string, neotest.Result>
 local function assign_test_results(node, failed, framework, output, results)
   local data = node:data()
-  if data.type == "test" and data.lsp_test_item then
+  if data.type == 'test' and data.lsp_test_item then
     local test_failed
-    if framework == "rspec" then
+    if framework == 'rspec' then
       test_failed = data.lsp_test_item.range and failed[data.lsp_test_item.range.start.line] or false
     else
       test_failed = failed[data.lsp_test_item.id] or false
     end
     results[data.id] = {
-      status = test_failed and "failed" or "passed",
+      status = test_failed and 'failed' or 'passed',
       output = output,
     }
   end
@@ -332,7 +330,7 @@ function NeotestAdapter.results(spec, result, tree)
     assign_test_results(tree, {}, framework, result.output, results)
   else
     local failed
-    if framework == "rspec" then
+    if framework == 'rspec' then
       failed = parse_rspec_failures(result.output)
     else
       failed = parse_minitest_failures(result.output)
@@ -341,7 +339,7 @@ function NeotestAdapter.results(spec, result, tree)
       assign_test_results(tree, failed, framework, result.output, results)
     else
       -- Could not parse individual failures — fall back to marking parent
-      results[pos_id] = { status = "failed", output = result.output }
+      results[pos_id] = { status = 'failed', output = result.output }
     end
   end
 

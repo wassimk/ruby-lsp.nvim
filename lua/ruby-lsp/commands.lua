@@ -1,5 +1,5 @@
-local executor = require("ruby-lsp.executor")
-local utils = require("ruby-lsp.utils")
+local executor = require('ruby-lsp.executor')
+local utils = require('ruby-lsp.utils')
 
 local M = {}
 
@@ -12,15 +12,15 @@ local function resolve_and_run(file_path, test_id)
   utils.after_indexing(function()
     local client = utils.get_client()
     if not client then
-      vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
+      vim.notify('ruby-lsp: no ruby_lsp client found', vim.log.levels.ERROR)
       return
     end
 
     local uri = vim.uri_from_fname(file_path)
 
-    client:request("rubyLsp/discoverTests", { textDocument = { uri = uri } }, function(err, result)
+    client:request('rubyLsp/discoverTests', { textDocument = { uri = uri } }, function(err, result)
       if err or not result or #result == 0 then
-        vim.notify("ruby-lsp: failed to discover tests", vim.log.levels.ERROR)
+        vim.notify('ruby-lsp: failed to discover tests', vim.log.levels.ERROR)
         return
       end
 
@@ -32,9 +32,9 @@ local function resolve_and_run(file_path, test_id)
 
       local items = { utils.wrap_test_item(item) }
 
-      client:request("rubyLsp/resolveTestCommands", { items = items }, function(err2, result2)
+      client:request('rubyLsp/resolveTestCommands', { items = items }, function(err2, result2)
         if err2 or not result2 or not result2.commands or #result2.commands == 0 then
-          vim.notify("ruby-lsp: failed to resolve test command", vim.log.levels.ERROR)
+          vim.notify('ruby-lsp: failed to resolve test command', vim.log.levels.ERROR)
           return
         end
         vim.schedule(function()
@@ -54,9 +54,9 @@ function M.run_test(command)
     return
   end
 
-  local neotest_ok, neotest = pcall(require, "neotest")
+  local neotest_ok, neotest = pcall(require, 'neotest')
   if neotest_ok then
-    neotest.run.run(file_path .. "::" .. test_id)
+    neotest.run.run(file_path .. '::' .. test_id)
     return
   end
 
@@ -78,9 +78,9 @@ end
 ---rubyLsp.debugTest handler.
 ---@param command lsp.Command
 function M.debug_test(command)
-  local ok, dap_mod = pcall(require, "ruby-lsp.dap")
+  local ok, dap_mod = pcall(require, 'ruby-lsp.dap')
   if not ok then
-    vim.notify("ruby-lsp: failed to load dap module", vim.log.levels.ERROR)
+    vim.notify('ruby-lsp: failed to load dap module', vim.log.levels.ERROR)
     return
   end
 
@@ -94,7 +94,7 @@ end
 ---@return integer? line
 ---@return integer? col
 local function parse_file_uri(uri)
-  local fragment_start = uri:find("#")
+  local fragment_start = uri:find('#')
   local fragment = nil
   local base_uri = uri
 
@@ -107,10 +107,10 @@ local function parse_file_uri(uri)
   local line, col
 
   if fragment then
-    local l, c = fragment:match("^L(%d+),?(%d*)")
+    local l, c = fragment:match('^L(%d+),?(%d*)')
     if l then
       line = tonumber(l)
-      col = c ~= "" and tonumber(c) or nil
+      col = c ~= '' and tonumber(c) or nil
     end
   end
 
@@ -125,13 +125,13 @@ function M.open_file(command)
   local uris = args[1]
 
   if not uris or #uris == 0 then
-    vim.notify("ruby-lsp: no file URI provided", vim.log.levels.WARN)
+    vim.notify('ruby-lsp: no file URI provided', vim.log.levels.WARN)
     return
   end
 
   local function open_uri(uri)
     local path, line, col = parse_file_uri(uri)
-    vim.cmd("edit " .. vim.fn.fnameescape(path))
+    vim.cmd('edit ' .. vim.fn.fnameescape(path))
     if line then
       vim.api.nvim_win_set_cursor(0, { line, (col or 1) - 1 })
     end
@@ -141,9 +141,9 @@ function M.open_file(command)
     open_uri(uris[1])
   else
     vim.ui.select(uris, {
-      prompt = "Open file:",
+      prompt = 'Open file:',
       format_item = function(uri)
-        return vim.fn.fnamemodify(vim.uri_to_fname(uri:gsub("#.*$", "")), ":t")
+        return vim.fn.fnamemodify(vim.uri_to_fname(uri:gsub('#.*$', '')), ':t')
       end,
     }, function(choice)
       if choice then
@@ -159,11 +159,11 @@ function M.run_task(command)
   local args = command.arguments or {}
   local cmd = args[1]
   if not cmd then
-    vim.notify("ruby-lsp: missing task command in arguments", vim.log.levels.ERROR)
+    vim.notify('ruby-lsp: missing task command in arguments', vim.log.levels.ERROR)
     return
   end
 
-  local cfg = require("ruby-lsp.config").get()
+  local cfg = require('ruby-lsp.config').get()
   executor.run(cmd, { keep_open = cfg.task.keep_open })
 end
 

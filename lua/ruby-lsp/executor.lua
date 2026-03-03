@@ -1,8 +1,8 @@
-local config = require("ruby-lsp.config")
+local config = require('ruby-lsp.config')
 
 local M = {}
 
-local TERM_BUF_VAR = "ruby_lsp_terminal"
+local TERM_BUF_VAR = 'ruby_lsp_terminal'
 
 ---Find an existing ruby-lsp terminal buffer.
 ---@return integer|nil
@@ -29,10 +29,10 @@ local function run_split(cmd)
     if #wins > 0 then
       vim.api.nvim_set_current_win(wins[1])
     else
-      if cfg.direction == "vertical" then
-        vim.cmd("vertical sbuffer " .. existing)
+      if cfg.direction == 'vertical' then
+        vim.cmd('vertical sbuffer ' .. existing)
       else
-        vim.cmd("belowright sbuffer " .. existing)
+        vim.cmd('belowright sbuffer ' .. existing)
         vim.api.nvim_win_set_height(0, cfg.size)
       end
     end
@@ -44,26 +44,26 @@ local function run_split(cmd)
     vim.fn.termopen(cmd)
     vim.api.nvim_buf_set_var(0, TERM_BUF_VAR, true)
   else
-    if cfg.direction == "vertical" then
-      vim.cmd("vnew")
+    if cfg.direction == 'vertical' then
+      vim.cmd('vnew')
     else
-      vim.cmd("belowright new")
+      vim.cmd('belowright new')
       vim.api.nvim_win_set_height(0, cfg.size)
     end
     vim.fn.termopen(cmd)
     vim.api.nvim_buf_set_var(0, TERM_BUF_VAR, true)
   end
 
-  vim.cmd("normal! G")
+  vim.cmd('normal! G')
 end
 
 ---Run command via toggleterm.
 ---@param cmd string
 ---@param opts? {keep_open?: boolean}
 local function run_toggleterm(cmd, opts)
-  local ok, Terminal = pcall(require, "toggleterm.terminal")
+  local ok, Terminal = pcall(require, 'toggleterm.terminal')
   if not ok then
-    vim.notify("toggleterm.nvim is not installed", vim.log.levels.ERROR)
+    vim.notify('toggleterm.nvim is not installed', vim.log.levels.ERROR)
     return
   end
 
@@ -94,9 +94,9 @@ function M.run(cmd, opts)
   opts = opts or {}
   local executor = config.get().executor
 
-  if type(executor) == "function" then
+  if type(executor) == 'function' then
     executor(cmd, opts)
-  elseif executor == "toggleterm" then
+  elseif executor == 'toggleterm' then
     run_toggleterm(cmd, opts)
   else
     run_split(cmd)

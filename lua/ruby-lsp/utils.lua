@@ -1,9 +1,9 @@
 local M = {}
 
-M.MIN_RUBY_LSP_VERSION = "0.23.0"
-M.FEATURE_FLAG_MSG = "ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n"
-  .. "Add to your ruby_lsp LSP config:\n"
-  .. "  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }"
+M.MIN_RUBY_LSP_VERSION = '0.23.0'
+M.FEATURE_FLAG_MSG = 'ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n'
+  .. 'Add to your ruby_lsp LSP config:\n'
+  .. '  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }'
 
 ---@type table<integer, boolean>
 local indexing_complete = {}
@@ -12,7 +12,7 @@ local indexing_complete = {}
 ---@param client_id integer
 function M.on_indexing_complete(client_id)
   indexing_complete[client_id] = true
-  vim.api.nvim_exec_autocmds("User", { pattern = "RubyLspIndexingComplete" })
+  vim.api.nvim_exec_autocmds('User', { pattern = 'RubyLspIndexingComplete' })
 end
 
 ---Check whether the ruby_lsp server has finished indexing.
@@ -30,10 +30,10 @@ function M.after_indexing(fn)
     fn()
     return
   end
-  vim.notify("ruby-lsp: waiting for server indexing to complete...", vim.log.levels.INFO)
-  vim.api.nvim_create_autocmd("User", {
-    group = vim.api.nvim_create_augroup("RubyLspWaitIndexing", { clear = false }),
-    pattern = "RubyLspIndexingComplete",
+  vim.notify('ruby-lsp: waiting for server indexing to complete...', vim.log.levels.INFO)
+  vim.api.nvim_create_autocmd('User', {
+    group = vim.api.nvim_create_augroup('RubyLspWaitIndexing', { clear = false }),
+    pattern = 'RubyLspIndexingComplete',
     once = true,
     callback = vim.schedule_wrap(fn),
   })
@@ -52,16 +52,16 @@ function M.check_rspec_addon(client)
 
   local attached_bufs = vim.lsp.get_buffers_by_client_id(client.id)
   local bufnr = attached_bufs[1] or 0
-  client:request("rubyLsp/workspace/dependencies", vim.lsp.util.make_text_document_params(bufnr), function(err, result)
+  client:request('rubyLsp/workspace/dependencies', vim.lsp.util.make_text_document_params(bufnr), function(err, result)
     if err or not result then
       return
     end
     local has_rspec = false
     local has_addon = false
     for _, dep in ipairs(result) do
-      if dep.name == "rspec-core" then
+      if dep.name == 'rspec-core' then
         has_rspec = true
-      elseif dep.name == "ruby-lsp-rspec" then
+      elseif dep.name == 'ruby-lsp-rspec' then
         has_addon = true
       end
       if has_rspec and has_addon then
@@ -70,10 +70,10 @@ function M.check_rspec_addon(client)
     end
     if has_rspec and not has_addon then
       vim.notify(
-        "ruby-lsp: RSpec detected but ruby-lsp-rspec addon is not installed.\n"
-          .. "Test discovery and code lenses will not work for RSpec files.\n"
-          .. "Add to your Gemfile: gem \"ruby-lsp-rspec\", require: false, group: :development\n"
-          .. "Run :checkhealth ruby-lsp for details.",
+        'ruby-lsp: RSpec detected but ruby-lsp-rspec addon is not installed.\n'
+          .. 'Test discovery and code lenses will not work for RSpec files.\n'
+          .. 'Add to your Gemfile: gem "ruby-lsp-rspec", require: false, group: :development\n'
+          .. 'Run :checkhealth ruby-lsp for details.',
         vim.log.levels.WARN
       )
     end
@@ -92,7 +92,7 @@ end
 ---Get the first active ruby_lsp client, or nil if none is running.
 ---@return vim.lsp.Client|nil
 function M.get_client()
-  local clients = vim.lsp.get_clients({ name = "ruby_lsp" })
+  local clients = vim.lsp.get_clients({ name = 'ruby_lsp' })
   if #clients == 0 then
     return nil
   end
@@ -140,7 +140,7 @@ end
 function M.validate_test_args(command)
   local client = M.get_client()
   if not client then
-    vim.notify("ruby-lsp: no ruby_lsp client found", vim.log.levels.ERROR)
+    vim.notify('ruby-lsp: no ruby_lsp client found', vim.log.levels.ERROR)
     return nil, nil
   end
 
@@ -154,7 +154,7 @@ function M.validate_test_args(command)
   local test_id = args[2]
 
   if not file_path or not test_id then
-    vim.notify("ruby-lsp: missing test arguments", vim.log.levels.ERROR)
+    vim.notify('ruby-lsp: missing test arguments', vim.log.levels.ERROR)
     return nil, nil
   end
 

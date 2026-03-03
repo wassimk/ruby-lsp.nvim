@@ -81,6 +81,21 @@ require("ruby-lsp").setup({
 :checkhealth ruby-lsp
 ```
 
+## Development
+
+One-time setup to enable local git hooks:
+
+```shell
+make setup
+```
+
+This activates a pre-commit hook that checks Lua formatting with [stylua](https://github.com/JohnnyMorganz/StyLua) and auto-generates `doc/ruby-lsp.nvim.txt` from `README.md` whenever the README is staged. Requires [pandoc](https://pandoc.org/installing.html).
+
+```shell
+make lint  # check Lua formatting
+make docs  # regenerate vimdoc from README.md
+```
+
 ## Acknowledgements
 
 Thank you to [Ruby LSP](https://github.com/Shopify/ruby-lsp) for making such an amazing tool. This is not an official Ruby LSP project. This is just my work to make Ruby LSP work really well in Neovim.
