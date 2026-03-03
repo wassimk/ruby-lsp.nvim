@@ -1,0 +1,150 @@
+*ruby-lsp.nvim.txt*         For NVIM v0.10.0        Last change: 2026 March 02
+
+==============================================================================
+Table of Contents                            *ruby-lsp.nvim-table-of-contents*
+
+1. ruby-lsp.nvim                                 |ruby-lsp.nvim-ruby-lsp.nvim|
+  - The Problem                      |ruby-lsp.nvim-ruby-lsp.nvim-the-problem|
+  - Commands Handled            |ruby-lsp.nvim-ruby-lsp.nvim-commands-handled|
+  - Requirements                    |ruby-lsp.nvim-ruby-lsp.nvim-requirements|
+  - Installation                    |ruby-lsp.nvim-ruby-lsp.nvim-installation|
+  - Configuration                  |ruby-lsp.nvim-ruby-lsp.nvim-configuration|
+  - Health Check                    |ruby-lsp.nvim-ruby-lsp.nvim-health-check|
+  - Development                      |ruby-lsp.nvim-ruby-lsp.nvim-development|
+  - Acknowledgements            |ruby-lsp.nvim-ruby-lsp.nvim-acknowledgements|
+
+==============================================================================
+1. ruby-lsp.nvim                                 *ruby-lsp.nvim-ruby-lsp.nvim*
+
+Neovim plugin that handles Ruby LSP client-side commands (`rubyLsp.*`) so code
+lens actions like **Run**, **Run In Terminal**, and **Debug** work natively in
+Neovim.
+
+
+THE PROBLEM                          *ruby-lsp.nvim-ruby-lsp.nvim-the-problem*
+
+Ruby LSP emits code lens actions above test methods and classes, but these
+trigger client-side commands (`rubyLsp.runTest`, `rubyLsp.runTestInTerminal`,
+`rubyLsp.debugTest`) that VS Code handles in its extension. Neovim doesn’t
+know about them, so clicking them fails with "Language server does not support
+command".
+
+This plugin registers handlers for all five `rubyLsp.*` commands via
+`vim.lsp.commands`.
+
+
+COMMANDS HANDLED                *ruby-lsp.nvim-ruby-lsp.nvim-commands-handled*
+
+  -----------------------------------------------------------------------
+  Command                             Behavior
+  ----------------------------------- -----------------------------------
+  rubyLsp.runTest                     Run test command in terminal
+
+  rubyLsp.runTestInTerminal           Run test command in terminal
+
+  rubyLsp.debugTest                   Launch DAP session with rdbg
+                                      (requires nvim-dap)
+
+  rubyLsp.openFile                    Open file URI with line number
+                                      support
+
+  rubyLsp.runTask                     Run rake/migration commands in
+                                      terminal
+  -----------------------------------------------------------------------
+
+REQUIREMENTS                        *ruby-lsp.nvim-ruby-lsp.nvim-requirements*
+
+- Neovim >= 0.10
+- ruby-lsp <https://github.com/Shopify/ruby-lsp> >= 0.23.0
+- ruby-lsp-rspec <https://github.com/st0012/ruby-lsp-rspec> (if using Rails with RSpec)
+
+
+OPTIONAL ~
+
+- nvim-dap <https://github.com/mfussenegger/nvim-dap> for `rubyLsp.debugTest` support
+- toggleterm.nvim <https://github.com/akinsho/toggleterm.nvim> for the `toggleterm` executor
+
+
+INSTALLATION                        *ruby-lsp.nvim-ruby-lsp.nvim-installation*
+
+With lazy.nvim <https://github.com/folke/lazy.nvim>:
+
+>lua
+    {
+      "wassimk/ruby-lsp.nvim",
+      version = "*",
+      ft = "ruby",
+      opts = {},
+    }
+<
+
+
+CONFIGURATION                      *ruby-lsp.nvim-ruby-lsp.nvim-configuration*
+
+>lua
+    require("ruby-lsp").setup({
+      -- How to run tests in terminal.
+      -- "split" (builtin) | "toggleterm" | function(cmd, opts)
+      executor = "split",
+    
+      -- Split executor options
+      split = {
+        direction = "horizontal", -- "horizontal" | "vertical"
+        size = 15,
+      },
+    
+      -- Toggleterm executor options
+      toggleterm = {
+        direction = "float", -- "float" | "horizontal" | "vertical"
+        close_on_exit = false,
+      },
+    
+      -- Task runner options (e.g., migrations)
+      task = {
+        keep_open = true, -- keep terminal open after task completes
+      },
+    
+      -- DAP configuration
+      dap = {
+        auto_configure = true, -- register rdbg adapter if nvim-dap is available
+        adapter = "ruby",      -- DAP adapter type name
+      },
+    })
+<
+
+
+HEALTH CHECK                        *ruby-lsp.nvim-ruby-lsp.nvim-health-check*
+
+>
+    :checkhealth ruby-lsp
+<
+
+
+DEVELOPMENT                          *ruby-lsp.nvim-ruby-lsp.nvim-development*
+
+One-time setup to enable local git hooks:
+
+>shell
+    make setup
+<
+
+This activates a pre-commit hook that checks Lua formatting with stylua
+<https://github.com/JohnnyMorganz/StyLua> and auto-generates
+`doc/ruby-lsp.nvim.txt` from `README.md` whenever the README is staged.
+Requires pandoc <https://pandoc.org/installing.html>.
+
+>shell
+    make lint  # check Lua formatting
+    make docs  # regenerate vimdoc from README.md
+<
+
+
+ACKNOWLEDGEMENTS                *ruby-lsp.nvim-ruby-lsp.nvim-acknowledgements*
+
+Thank you to Ruby LSP <https://github.com/Shopify/ruby-lsp> for making such an
+amazing tool. This is not an official Ruby LSP project. This is just my work to
+make Ruby LSP work really well in Neovim.
+
+Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
+
+vim:tw=78:ts=8:noet:ft=help:norl:
