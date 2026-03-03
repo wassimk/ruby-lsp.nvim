@@ -22,7 +22,7 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 
 - Neovim >= 0.10
 - [ruby-lsp](https://github.com/Shopify/ruby-lsp) >= 0.23.0
-- [ruby-lsp-rails](https://github.com/Shopify/ruby-lsp-rails) >= 0.4.0 (if using Rails)
+- [ruby-lsp-rspec](https://github.com/st0012/ruby-lsp-rspec) (if using Rails with RSpec)
 
 ### Optional
 
@@ -36,6 +36,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 {
   "wassimk/ruby-lsp.nvim",
+  version = "*",
   ft = "ruby",
   opts = {},
 }
