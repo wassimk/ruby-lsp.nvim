@@ -1,6 +1,6 @@
-local config = require("ruby-lsp.config")
-local commands = require("ruby-lsp.commands")
-local utils = require("ruby-lsp.utils")
+local config = require('ruby-lsp.config')
+local commands = require('ruby-lsp.commands')
+local utils = require('ruby-lsp.utils')
 
 local M = {}
 
@@ -8,13 +8,13 @@ local M = {}
 function M.setup(opts)
   config.setup(opts)
 
-  vim.lsp.commands["rubyLsp.runTest"] = commands.run_test
-  vim.lsp.commands["rubyLsp.runTestInTerminal"] = commands.run_test_terminal
-  vim.lsp.commands["rubyLsp.debugTest"] = commands.debug_test
-  vim.lsp.commands["rubyLsp.openFile"] = commands.open_file
-  vim.lsp.commands["rubyLsp.runTask"] = commands.run_task
+  vim.lsp.commands['rubyLsp.runTest'] = commands.run_test
+  vim.lsp.commands['rubyLsp.runTestInTerminal'] = commands.run_test_terminal
+  vim.lsp.commands['rubyLsp.debugTest'] = commands.debug_test
+  vim.lsp.commands['rubyLsp.openFile'] = commands.open_file
+  vim.lsp.commands['rubyLsp.runTask'] = commands.run_task
 
-  local group = vim.api.nvim_create_augroup("RubyLsp", { clear = true })
+  local group = vim.api.nvim_create_augroup('RubyLsp', { clear = true })
 
   -- WORKAROUND: ruby-lsp-rails addon sends $/progress notifications with
   -- explicit null fields (e.g., message: null, percentage: null). This happens
@@ -32,11 +32,11 @@ function M.setup(opts)
   -- Upstream fix: open an issue against Shopify/ruby-lsp-rails to use the
   -- Interface objects (WorkDoneProgressBegin, etc.) or strip nil values from
   -- the hash before serialization in begin_progress/report_progress.
-  vim.api.nvim_create_autocmd("LspAttach", {
+  vim.api.nvim_create_autocmd('LspAttach', {
     group = group,
     callback = function(ev)
       local client = vim.lsp.get_client_by_id(ev.data.client_id)
-      if not client or client.name ~= "ruby_lsp" then
+      if not client or client.name ~= 'ruby_lsp' then
         return
       end
       if client._ruby_lsp_nvim_attached then
@@ -44,10 +44,10 @@ function M.setup(opts)
       end
       client._ruby_lsp_nvim_attached = true
 
-      local default_progress = vim.lsp.handlers["$/progress"]
+      local default_progress = vim.lsp.handlers['$/progress']
       if default_progress then
-        client.handlers["$/progress"] = function(err, result, ctx, cfg2)
-          if result and type(result.value) == "table" then
+        client.handlers['$/progress'] = function(err, result, ctx, cfg2)
+          if result and type(result.value) == 'table' then
             for k, v in pairs(result.value) do
               if v == vim.NIL then
                 result.value[k] = nil
@@ -60,16 +60,16 @@ function M.setup(opts)
     end,
   })
 
-  vim.api.nvim_create_autocmd("LspProgress", {
+  vim.api.nvim_create_autocmd('LspProgress', {
     group = group,
     callback = function(ev)
       local client = vim.lsp.get_client_by_id(ev.data.client_id)
-      if not client or client.name ~= "ruby_lsp" then
+      if not client or client.name ~= 'ruby_lsp' then
         return
       end
       local token = ev.data.params.token
       local value = ev.data.params.value
-      if token == "indexing-progress" and value and value.kind == "end" then
+      if token == 'indexing-progress' and value and value.kind == 'end' then
         utils.on_indexing_complete(client.id)
         utils.check_rspec_addon(client)
       end
@@ -78,7 +78,7 @@ function M.setup(opts)
 
   local cfg = config.get()
   if cfg.dap.auto_configure then
-    local dap_mod = require("ruby-lsp.dap")
+    local dap_mod = require('ruby-lsp.dap')
     dap_mod.setup_adapter()
   end
 end

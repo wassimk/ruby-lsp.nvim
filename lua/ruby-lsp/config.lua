@@ -1,15 +1,15 @@
 local M = {}
 
 local defaults = {
-  executor = "split",
+  executor = 'split',
 
   split = {
-    direction = "horizontal",
+    direction = 'horizontal',
     size = 15,
   },
 
   toggleterm = {
-    direction = "float",
+    direction = 'float',
     close_on_exit = false,
   },
 
@@ -19,7 +19,7 @@ local defaults = {
 
   dap = {
     auto_configure = true,
-    adapter = "ruby",
+    adapter = 'ruby',
   },
 }
 
@@ -28,7 +28,7 @@ M._config = vim.deepcopy(defaults)
 
 ---@param opts? table
 function M.setup(opts)
-  M._config = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+  M._config = vim.tbl_deep_extend('force', vim.deepcopy(defaults), opts or {})
 end
 
 ---@return table
