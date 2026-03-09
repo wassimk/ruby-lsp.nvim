@@ -2,13 +2,13 @@
 
 Neovim plugin that handles Ruby LSP client-side commands (`rubyLsp.*`) so code lens actions like **Run**, **Run In Terminal**, and **Debug** work natively in Neovim.
 
-## The Problem
+## 💡 The Problem
 
 Ruby LSP emits code lens actions above test methods and classes, but these trigger client-side commands (`rubyLsp.runTest`, `rubyLsp.runTestInTerminal`, `rubyLsp.debugTest`) that VS Code handles in its extension. Neovim doesn't know about them, so clicking them fails with "Language server does not support command".
 
 This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.commands`.
 
-## Commands Handled
+## 📝 Commands Handled
 
 | Command | Behavior |
 |---|---|
@@ -18,7 +18,7 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 | `rubyLsp.openFile` | Open file URI with line number support |
 | `rubyLsp.runTask` | Run rake/migration commands in terminal |
 
-## Requirements
+## 📋 Requirements
 
 - Neovim >= 0.10
 - [ruby-lsp](https://github.com/Shopify/ruby-lsp) >= 0.23.0
@@ -35,7 +35,7 @@ Neovim plugins:
 - [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) for running tests in toggleterm, otherwise falls back to split terminal
 - [neotest](https://github.com/nvim-neotest/neotest) for running tests through neotest instead of the terminal
 
-## Installation
+## 🛠️ Installation
 
 With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
@@ -48,7 +48,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
-## Ruby LSP Server Setup
+## 🖥️ Ruby LSP Server Setup
 
 This plugin handles client-side commands and neotest integration. You still need to configure the Ruby LSP server yourself in your Neovim LSP setup. The `fullTestDiscovery` feature flag must be enabled for code lens and test discovery to work.
 
@@ -76,7 +76,7 @@ require("lspconfig").ruby_lsp.setup({
 
 Run `:checkhealth ruby-lsp` to verify the server is running and the feature flag is enabled.
 
-## Plugin Options
+## ⚙️ Plugin Options
 
 These are the defaults. No changes are necessary unless you want to customize behavior.
 
@@ -111,7 +111,7 @@ require("ruby-lsp").setup({
 })
 ```
 
-## Neotest Integration
+## 🧪 Neotest Integration
 
 This plugin includes a [neotest](https://github.com/nvim-neotest/neotest) adapter that uses Ruby LSP for test discovery and command resolution. When neotest is installed, the **Run** code lens (`rubyLsp.runTest`) automatically routes tests through neotest instead of the terminal executor. The **Run In Terminal** code lens always uses the terminal executor regardless of neotest.
 
@@ -127,13 +127,13 @@ require("neotest").setup({
 })
 ```
 
-## Health Check
+## 🩺 Health Check
 
 ```
 :checkhealth ruby-lsp
 ```
 
-## Development
+## 🔧 Development
 
 One-time setup to enable local git hooks:
 
@@ -148,6 +148,6 @@ make lint  # check Lua formatting
 make docs  # regenerate vimdoc from README.md
 ```
 
-## Acknowledgements
+## 🙏 Acknowledgements
 
 Thank you to [Ruby LSP](https://github.com/Shopify/ruby-lsp) for making such an amazing tool. This is not an official Ruby LSP project. This is just my work to make Ruby LSP work really well in Neovim.

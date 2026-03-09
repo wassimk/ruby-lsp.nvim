@@ -1,19 +1,19 @@
-*ruby-lsp.nvim.txt*         For NVIM v0.10.0        Last change: 2026 March 02
+*ruby-lsp.nvim.txt*         For NVIM v0.10.0        Last change: 2026 March 08
 
 ==============================================================================
 Table of Contents                            *ruby-lsp.nvim-table-of-contents*
 
 1. ruby-lsp.nvim                                 |ruby-lsp.nvim-ruby-lsp.nvim|
-  - The Problem                      |ruby-lsp.nvim-ruby-lsp.nvim-the-problem|
-  - Commands Handled            |ruby-lsp.nvim-ruby-lsp.nvim-commands-handled|
-  - Requirements                    |ruby-lsp.nvim-ruby-lsp.nvim-requirements|
-  - Installation                    |ruby-lsp.nvim-ruby-lsp.nvim-installation|
-  - Ruby LSP Server Setup  |ruby-lsp.nvim-ruby-lsp.nvim-ruby-lsp-server-setup|
-  - Plugin Options                |ruby-lsp.nvim-ruby-lsp.nvim-plugin-options|
-  - Neotest Integration      |ruby-lsp.nvim-ruby-lsp.nvim-neotest-integration|
-  - Health Check                    |ruby-lsp.nvim-ruby-lsp.nvim-health-check|
-  - Development                      |ruby-lsp.nvim-ruby-lsp.nvim-development|
-  - Acknowledgements            |ruby-lsp.nvim-ruby-lsp.nvim-acknowledgements|
+  - 💡 The Problem            |ruby-lsp.nvim-ruby-lsp.nvim-💡-the-problem|
+  - 📝 Commands Handled  |ruby-lsp.nvim-ruby-lsp.nvim-📝-commands-handled|
+  - 📋 Requirements          |ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements|
+  - 🛠️ Installation    |ruby-lsp.nvim-ruby-lsp.nvim-���-️-installation|
+  - 🖥️ Ruby LSP Server Setup|ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server-setup|
+  - ⚙️ Plugin Options  |ruby-lsp.nvim-ruby-lsp.nvim-⚙️-plugin-options|
+  - 🧪 Neotest Integration|ruby-lsp.nvim-ruby-lsp.nvim-🧪-neotest-integration|
+  - 🩺 Health Check          |ruby-lsp.nvim-ruby-lsp.nvim-🩺-health-check|
+  - 🔧 Development            |ruby-lsp.nvim-ruby-lsp.nvim-🔧-development|
+  - 🙏 Acknowledgements  |ruby-lsp.nvim-ruby-lsp.nvim-🙏-acknowledgements|
 
 ==============================================================================
 1. ruby-lsp.nvim                                 *ruby-lsp.nvim-ruby-lsp.nvim*
@@ -23,7 +23,7 @@ lens actions like **Run**, **Run In Terminal**, and **Debug** work natively in
 Neovim.
 
 
-THE PROBLEM                          *ruby-lsp.nvim-ruby-lsp.nvim-the-problem*
+П�� THE PROBLEM                *ruby-lsp.nvim-ruby-lsp.nvim-💡-the-problem*
 
 Ruby LSP emits code lens actions above test methods and classes, but these
 trigger client-side commands (`rubyLsp.runTest`, `rubyLsp.runTestInTerminal`,
@@ -35,7 +35,7 @@ This plugin registers handlers for all five `rubyLsp.*` commands via
 `vim.lsp.commands`.
 
 
-COMMANDS HANDLED                *ruby-lsp.nvim-ruby-lsp.nvim-commands-handled*
+П�� COMMANDS HANDLED      *ruby-lsp.nvim-ruby-lsp.nvim-📝-commands-handled*
 
   -----------------------------------------------------------------------
   Command                             Behavior
@@ -54,7 +54,7 @@ COMMANDS HANDLED                *ruby-lsp.nvim-ruby-lsp.nvim-commands-handled*
                                       terminal
   -----------------------------------------------------------------------
 
-REQUIREMENTS                        *ruby-lsp.nvim-ruby-lsp.nvim-requirements*
+П�� REQUIREMENTS              *ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements*
 
 - Neovim >= 0.10
 - ruby-lsp <https://github.com/Shopify/ruby-lsp> >= 0.23.0
@@ -73,7 +73,7 @@ Neovim plugins:
 - neotest <https://github.com/nvim-neotest/neotest> for running tests through neotest instead of the terminal
 
 
-INSTALLATION                        *ruby-lsp.nvim-ruby-lsp.nvim-installation*
+П��ϸ� INSTALLATION        *ruby-lsp.nvim-ruby-lsp.nvim-���-️-installation*
 
 With lazy.nvim <https://github.com/folke/lazy.nvim>:
 
@@ -87,7 +87,7 @@ With lazy.nvim <https://github.com/folke/lazy.nvim>:
 <
 
 
-RUBY LSP SERVER SETUP      *ruby-lsp.nvim-ruby-lsp.nvim-ruby-lsp-server-setup*
+П��ϸ� RUBY LSP SERVER SETUP*ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server-setup*
 
 This plugin handles client-side commands and neotest integration. You still
 need to configure the Ruby LSP server yourself in your Neovim LSP setup. The
@@ -120,7 +120,7 @@ Run `:checkhealth ruby-lsp` to verify the server is running and the feature
 flag is enabled.
 
 
-PLUGIN OPTIONS                    *ruby-lsp.nvim-ruby-lsp.nvim-plugin-options*
+�ϸ� PLUGIN OPTIONS      *ruby-lsp.nvim-ruby-lsp.nvim-⚙️-plugin-options*
 
 These are the defaults. No changes are necessary unless you want to customize
 behavior.
@@ -157,7 +157,7 @@ behavior.
 <
 
 
-NEOTEST INTEGRATION          *ruby-lsp.nvim-ruby-lsp.nvim-neotest-integration*
+П�� NEOTEST INTEGRATION*ruby-lsp.nvim-ruby-lsp.nvim-🧪-neotest-integration*
 
 This plugin includes a neotest <https://github.com/nvim-neotest/neotest>
 adapter that uses Ruby LSP for test discovery and command resolution. When
@@ -180,14 +180,14 @@ To enable it, register the adapter in your neotest setup:
 <
 
 
-HEALTH CHECK                        *ruby-lsp.nvim-ruby-lsp.nvim-health-check*
+П�� HEALTH CHECK              *ruby-lsp.nvim-ruby-lsp.nvim-🩺-health-check*
 
 >
     :checkhealth ruby-lsp
 <
 
 
-DEVELOPMENT                          *ruby-lsp.nvim-ruby-lsp.nvim-development*
+П�� DEVELOPMENT                *ruby-lsp.nvim-ruby-lsp.nvim-🔧-development*
 
 One-time setup to enable local git hooks:
 
@@ -206,7 +206,7 @@ Requires pandoc <https://pandoc.org/installing.html>.
 <
 
 
-ACKNOWLEDGEMENTS                *ruby-lsp.nvim-ruby-lsp.nvim-acknowledgements*
+П�� ACKNOWLEDGEMENTS      *ruby-lsp.nvim-ruby-lsp.nvim-🙏-acknowledgements*
 
 Thank you to Ruby LSP <https://github.com/Shopify/ruby-lsp> for making such an
 amazing tool. This is not an official Ruby LSP project. This is just my work to
