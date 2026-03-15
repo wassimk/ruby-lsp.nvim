@@ -1,0 +1,19 @@
+Run options: --seed 12345
+
+# Running:
+
+..F.E.
+
+Finished in 0.012345s, 485.4367 runs/s, 323.6245 assertions/s.
+
+  1) Failure:
+FooTest#test_bar [/path/to/foo_test.rb:10]:
+Expected: true
+  Actual: false
+
+  2) Error:
+FooTest#test_baz [/path/to/foo_test.rb:20]:
+RuntimeError: something went wrong
+    /path/to/foo_test.rb:20:in `test_baz'
+
+6 runs, 4 assertions, 1 failures, 1 errors, 0 skips
