@@ -1,9 +1,18 @@
+PLENARY_DIR ?= /tmp/plenary.nvim
 PANVIMDOC_DIR ?= /tmp/panvimdoc
 
-.PHONY: setup lint panvimdoc docs
+.PHONY: setup test plenary lint panvimdoc docs
 
 setup:
 	git config core.hooksPath .githooks
+
+plenary:
+	@if [ ! -d "$(PLENARY_DIR)" ]; then \
+		git clone --depth 1 https://github.com/nvim-lua/plenary.nvim $(PLENARY_DIR); \
+	fi
+
+test: plenary
+	PLENARY_DIR=$(PLENARY_DIR) nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua'}"
 
 panvimdoc:
 	@if [ ! -d "$(PANVIMDOC_DIR)" ]; then \
@@ -11,7 +20,7 @@ panvimdoc:
 	fi
 
 lint:
-	stylua --check lua/
+	stylua --check lua/ tests/
 
 docs: panvimdoc
 	$(PANVIMDOC_DIR)/panvimdoc.sh \

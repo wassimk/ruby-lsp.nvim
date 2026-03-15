@@ -1,0 +1,24 @@
+Failures:
+
+  1) Foo does bar
+     Failure/Error: expect(true).to eq(false)
+
+       expected: false
+            got: true
+
+     # ./spec/foo_spec.rb:5:in `block (2 levels) in <top (required)>'
+
+  2) Foo does baz
+     Failure/Error: expect(1).to eq(2)
+
+       expected: 2
+            got: 1
+
+     # ./spec/foo_spec.rb:15:in `block (2 levels) in <top (required)>'
+
+Failed examples:
+
+rspec ./spec/foo_spec.rb:5 # Foo does bar
+rspec ./spec/foo_spec.rb:15 # Foo does baz
+
+3 examples, 2 failures
