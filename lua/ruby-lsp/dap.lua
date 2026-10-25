@@ -22,7 +22,6 @@ function M.setup_adapter()
       'exec',
       'rdbg',
       '--open',
-      '--stop-at-load',
       '--port',
       '${port}',
       '--command',
@@ -47,6 +46,22 @@ function M.setup_adapter()
         args = args,
       },
     })
+  end
+
+  -- rdbg pauses at startup so nvim-dap can set breakpoints before any code runs (with
+  -- --nonstop, breakpoints are missed). Continue past that pause, so the session stops at
+  -- the first breakpoint instead. The request goes straight to the session because
+  -- nvim-dap only marks it stopped after this listener runs, so dap.continue() is a no-op.
+  local started = setmetatable({}, { __mode = 'k' })
+  dap.listeners.after.event_stopped['ruby-lsp'] = function(session, body)
+    if session.config.type ~= adapter_name or started[session] then
+      return
+    end
+
+    started[session] = true
+    if body.reason == 'pause' then
+      session:request('continue', { threadId = body.threadId })
+    end
   end
 end
 
