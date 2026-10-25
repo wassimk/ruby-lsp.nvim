@@ -21,6 +21,10 @@ local defaults = {
     auto_configure = true,
     adapter = 'ruby',
   },
+
+  test_discovery = {
+    progress = true,
+  },
 }
 
 ---@type table
