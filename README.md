@@ -20,7 +20,7 @@ This plugin registers handlers for all five `rubyLsp.*` commands via `vim.lsp.co
 
 ## 📋 Requirements
 
-- Neovim >= 0.10
+- Neovim >= 0.12
 - [ruby-lsp](https://github.com/Shopify/ruby-lsp) >= 0.23.0
 
 ### Optional
@@ -52,7 +52,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 This plugin handles client-side commands and neotest integration. You still need to configure the Ruby LSP server yourself in your Neovim LSP setup. The `fullTestDiscovery` feature flag must be enabled for code lens and test discovery to work.
 
-With `vim.lsp.config` (Neovim >= 0.11):
+With `vim.lsp.config`:
 
 ```lua
 vim.lsp.config("ruby_lsp", {
