@@ -1,10 +1,31 @@
--- Mock nio before requiring the neotest adapter
+-- Mock nio before requiring the neotest adapter. wrap() runs the callback-style
+-- function synchronously, and sleep() calls on_sleep so tests can advance state.
+local on_sleep
 package.loaded['nio'] = {
   wrap = function(fn, nparams)
-    return fn
+    return function(...)
+      local args = { ... }
+      local ret = {}
+      args[nparams] = function(...)
+        ret = { ... }
+      end
+      fn(unpack(args, 1, nparams))
+      return unpack(ret)
+    end
   end,
-  sleep = function() end,
-  fn = setmetatable({}, {
+  sleep = function(ms)
+    if on_sleep then
+      on_sleep(ms)
+    end
+  end,
+  fn = setmetatable({
+    fnamemodify = function(path)
+      return path:match('[^/]+$')
+    end,
+    bufnr = function()
+      return -1
+    end,
+  }, {
     __index = function()
       return function() end
     end,
@@ -268,6 +289,118 @@ describe('neotest adapter', function()
       assert.equals('failed', results['/path/test.rb'].status)
       assert.is_nil(results['/path/test.rb::SomeTest#test_thing'])
       os.remove(tmp)
+    end)
+  end)
+  describe('discover_positions', function()
+    local utils = require('ruby-lsp.utils')
+    local progress = require('ruby-lsp.progress')
+    local original_progress, progress_calls
+
+    local function server_client(id)
+      return helpers.mock_client({
+        id = id,
+        request = function(_, _, _, handler)
+          handler(nil, {
+            {
+              id = 'FooTest',
+              label = 'FooTest',
+              range = { start = { line = 0, character = 0 }, ['end'] = { line = 5, character = 3 } },
+              children = {},
+            },
+          })
+        end,
+      })
+    end
+
+    before_each(function()
+      on_sleep = nil
+      progress_calls = {}
+      original_progress = { start = progress.start, update = progress.update, finish = progress.finish }
+      progress.start = function(message)
+        table.insert(progress_calls, { 'start', message })
+        return 1
+      end
+      progress.update = function(_, message)
+        table.insert(progress_calls, { 'update', message })
+      end
+      progress.finish = function(_, message, success)
+        table.insert(progress_calls, { 'finish', message, success })
+      end
+      package.loaded['neotest.types'] = {
+        Tree = {
+          from_list = function(list)
+            return list
+          end,
+        },
+      }
+    end)
+
+    after_each(function()
+      on_sleep = nil
+      progress.start, progress.update, progress.finish =
+        original_progress.start, original_progress.update, original_progress.finish
+      package.loaded['neotest.types'] = nil
+    end)
+
+    local function messages()
+      return vim.tbl_map(function(call)
+        return call[2]
+      end, progress_calls)
+    end
+
+    it('discovers tests when the server is ready', function()
+      helpers.lsp_clients = { server_client(101) }
+      utils.on_indexing_complete(101)
+
+      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+
+      assert.equals('foo_test.rb', tree[1].name)
+      assert.same({ 'start', 'finish' }, { progress_calls[1][1], progress_calls[#progress_calls][1] })
+      assert.is_true(progress_calls[#progress_calls][3])
+    end)
+
+    it('waits for indexing past the old 30 second limit', function()
+      helpers.lsp_clients = { server_client(102) }
+      local slept = 0
+      on_sleep = function(ms)
+        slept = slept + ms
+        if slept >= 40000 then
+          utils.on_indexing_complete(102)
+        end
+      end
+
+      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+
+      assert.is_not_nil(tree)
+      assert.equals(0, #helpers.notifications)
+      assert.is_true(vim.tbl_contains(messages(), 'Waiting for Ruby LSP to finish indexing...'))
+    end)
+
+    it('waits for the server to start before discovering', function()
+      local slept = 0
+      on_sleep = function(ms)
+        slept = slept + ms
+        if slept >= 5000 and #helpers.lsp_clients == 0 then
+          helpers.lsp_clients = { server_client(103) }
+          utils.on_indexing_complete(103)
+        end
+      end
+
+      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+
+      assert.is_not_nil(tree)
+      assert.is_true(vim.tbl_contains(messages(), 'Waiting for Ruby LSP to start...'))
+    end)
+
+    it('gives up and reports failure when the server never starts', function()
+      on_sleep = function() end
+
+      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+
+      assert.is_nil(tree)
+      assert.equals(1, #helpers.notifications)
+      assert.truthy(helpers.notifications[1].msg:find('timed out waiting for the ruby_lsp server to start'))
+      assert.same({ 'finish', 'Test discovery failed', false }, progress_calls[#progress_calls])
     end)
   end)
 end)
