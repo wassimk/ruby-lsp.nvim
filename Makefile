@@ -26,7 +26,7 @@ docs: panvimdoc
 	$(PANVIMDOC_DIR)/panvimdoc.sh \
 		--project-name ruby-lsp.nvim \
 		--input-file README.md \
-		--vim-version "NVIM v0.10.0" \
+		--vim-version "NVIM v0.12.0" \
 		--toc true \
 		--treesitter true \
 		--doc-mapping-project-name false

@@ -6,6 +6,14 @@ local M = {}
 function M.check()
   vim.health.start('ruby-lsp.nvim')
 
+  -- Check Neovim version (drop build metadata, e.g. "0.12.6+v0.12.6")
+  local nvim_version = tostring(vim.version()):gsub('%+.*$', '')
+  if vim.fn.has('nvim-' .. utils.MIN_NVIM_VERSION) == 1 then
+    vim.health.ok('Neovim ' .. nvim_version)
+  else
+    vim.health.error('Neovim ' .. nvim_version .. ' is too old (minimum: ' .. utils.MIN_NVIM_VERSION .. ')')
+  end
+
   -- Check for Ruby LSP server in active clients
   local clients = vim.lsp.get_clients({ name = 'ruby_lsp' })
   if #clients > 0 then

@@ -1,4 +1,5 @@
-*ruby-lsp.nvim.txt*         For NVIM v0.10.0        Last change: 2026 March 08
+*ruby-lsp.nvim.txt*
+                              For NVIM v0.12.0    Last change: 2026 October 25
 
 ==============================================================================
 Table of Contents                            *ruby-lsp.nvim-table-of-contents*
@@ -56,7 +57,7 @@ This plugin registers handlers for all five `rubyLsp.*` commands via
 
 П�� REQUIREMENTS              *ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements*
 
-- Neovim >= 0.10
+- Neovim >= 0.12
 - ruby-lsp <https://github.com/Shopify/ruby-lsp> >= 0.23.0
 
 
@@ -94,7 +95,7 @@ need to configure the Ruby LSP server yourself in your Neovim LSP setup. The
 `fullTestDiscovery` feature flag must be enabled for code lens and test
 discovery to work.
 
-With `vim.lsp.config` (Neovim >= 0.11):
+With `vim.lsp.config`:
 
 >lua
     vim.lsp.config("ruby_lsp", {
@@ -102,7 +103,7 @@ With `vim.lsp.config` (Neovim >= 0.11):
         enabledFeatureFlags = { fullTestDiscovery = true },
       },
     })
-    
+
     vim.lsp.enable("ruby_lsp")
 <
 
@@ -130,24 +131,24 @@ behavior.
       -- How to run tests in terminal.
       -- "split" (builtin) | "toggleterm" | function(cmd, opts)
       executor = "split",
-    
+
       -- Split executor options
       split = {
         direction = "horizontal", -- "horizontal" | "vertical"
         size = 15,
       },
-    
+
       -- Toggleterm executor options
       toggleterm = {
         direction = "float", -- "float" | "horizontal" | "vertical"
         close_on_exit = false,
       },
-    
+
       -- Task runner options (e.g., migrations)
       task = {
         keep_open = true, -- keep terminal open after task completes
       },
-    
+
       -- DAP configuration
       dap = {
         auto_configure = true, -- register rdbg adapter if nvim-dap is available
@@ -166,8 +167,9 @@ routes tests through neotest instead of the terminal executor. The **Run In
 Terminal** code lens always uses the terminal executor regardless of neotest.
 
 The `fullTestDiscovery` feature flag must be enabled in your Ruby LSP server
-configuration (see |ruby-lsp.nvim-ruby-lsp-server-setup|) for test discovery to
-work.
+configuration (see Ruby LSP Server Setup
+|ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server-setup|) for test discovery
+to work.
 
 To enable it, register the adapter in your neotest setup:
 
