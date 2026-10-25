@@ -67,10 +67,17 @@ describe('neotest adapter', function()
       assert.is_false(adapter.is_test_file(nil))
     end)
 
-    it('returns false when no LSP client is active', function()
+    it('returns false when ruby_lsp is neither enabled nor running', function()
       helpers.lsp_clients = {}
 
       assert.is_false(adapter.is_test_file('/path/to/foo_test.rb'))
+    end)
+
+    it('matches test files when ruby_lsp is enabled but not started yet', function()
+      helpers.lsp_clients = {}
+      helpers.lsp_enabled = { ruby_lsp = true }
+
+      assert.is_true(adapter.is_test_file('/path/to/foo_spec.rb'))
     end)
   end)
 

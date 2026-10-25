@@ -101,7 +101,10 @@ function NeotestAdapter.filter_dir(name)
 end
 
 function NeotestAdapter.is_test_file(file_path)
-  if not utils.get_client() then
+  -- Check that ruby_lsp is enabled rather than running. neotest scans for test
+  -- files once and caches the answer, often before the server has started.
+  -- The client check covers servers started without vim.lsp.enable().
+  if not vim.lsp.is_enabled('ruby_lsp') and not utils.get_client() then
     return false
   end
   if not file_path or not vim.endswith(file_path, '.rb') then
