@@ -39,6 +39,7 @@ function M.mock_client(overrides)
   return vim.tbl_deep_extend('force', {
     id = 1,
     name = 'ruby_lsp',
+    attached_buffers = {},
     config = {
       init_options = {
         enabledFeatureFlags = { fullTestDiscovery = true },

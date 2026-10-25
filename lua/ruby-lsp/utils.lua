@@ -51,8 +51,7 @@ function M.check_rspec_addon(client)
   end
   rspec_addon_checked = true
 
-  local attached_bufs = vim.lsp.get_buffers_by_client_id(client.id)
-  local bufnr = attached_bufs[1] or 0
+  local bufnr = next(client.attached_buffers) or 0
   client:request('rubyLsp/workspace/dependencies', vim.lsp.util.make_text_document_params(bufnr), function(err, result)
     if err or not result then
       return

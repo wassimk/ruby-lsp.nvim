@@ -47,8 +47,7 @@ function M.check()
 
     -- Check for ruby-lsp-rspec addon in RSpec projects
     local client = clients[1]
-    local attached_bufs = vim.lsp.get_buffers_by_client_id(client.id)
-    local deps_bufnr = attached_bufs[1] or 0
+    local deps_bufnr = next(client.attached_buffers) or 0
     local ok, deps_resp = pcall(
       client.request_sync,
       client,
