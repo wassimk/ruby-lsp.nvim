@@ -117,6 +117,38 @@ describe('utils', function()
       assert.same({}, wrapped.children)
     end)
 
+    -- Workaround for https://github.com/st0012/ruby-lsp-rspec/pull/103
+    it('tags an RSpec example as a test case', function()
+      local item = { id = 'spec.rb:5::spec.rb:8', range = {}, tags = { 'framework:rspec' } }
+
+      assert.same({ 'framework:rspec', 'test_case' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('tags an RSpec group with examples as a test group', function()
+      local item = { id = 'spec.rb:5', range = {}, tags = { 'framework:rspec' }, children = { { id = 'child' } } }
+
+      assert.same({ 'framework:rspec', 'test_group' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('leaves minitest tags unchanged', function()
+      local item = { id = 'FooTest', range = {}, tags = { 'framework:minitest' }, children = { { id = 'child' } } }
+
+      assert.same({ 'framework:minitest' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('does not add a kind tag when RSpec already provides one', function()
+      local item = { id = 'spec.rb:8', range = {}, tags = { 'framework:rspec', 'test_case' } }
+
+      assert.same({ 'framework:rspec', 'test_case' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('does not modify the original tags', function()
+      local tags = { 'framework:rspec' }
+      utils.wrap_test_item({ id = 'spec.rb:8', range = {}, tags = tags })
+
+      assert.same({ 'framework:rspec' }, tags)
+    end)
+
     it('defaults tags to empty table when missing', function()
       local item = { id = 'test', label = 'test', uri = 'file:///test.rb', range = {} }
 
