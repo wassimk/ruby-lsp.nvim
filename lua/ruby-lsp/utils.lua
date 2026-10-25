@@ -118,6 +118,25 @@ function M.find_test_item(items, target_id)
   return nil
 end
 
+-- Ruby LSP 0.26 no longer tags test items as `test_group` or `test_case`, but
+-- ruby-lsp-rspec still needs those tags to run a single example or group. Without
+-- them it resolves every RSpec item to the whole file. Add them back until the
+-- upstream fix is released: https://github.com/st0012/ruby-lsp-rspec/pull/103
+---@param item table
+---@param tags string[]
+---@return string[]
+local function with_rspec_kind_tag(item, tags)
+  if not vim.tbl_contains(tags, 'framework:rspec') then
+    return tags
+  end
+  if vim.tbl_contains(tags, 'test_group') or vim.tbl_contains(tags, 'test_case') then
+    return tags
+  end
+
+  local kind = (item.children and #item.children > 0) and 'test_group' or 'test_case'
+  return vim.list_extend(vim.deepcopy(tags), { kind })
+end
+
 ---Build a test item wrapper suitable for rubyLsp/resolveTestCommands.
 ---@param item table LSP test item
 ---@return table
@@ -127,7 +146,7 @@ function M.wrap_test_item(item)
     label = item.label,
     uri = item.uri,
     range = item.range,
-    tags = item.tags or {},
+    tags = with_rspec_kind_tag(item, item.tags or {}),
     children = {},
   }
 end
