@@ -9,13 +9,27 @@ local POLL_MS = 100
 -- start, but a server that never starts (e.g. a broken bundle) gives up.
 local CLIENT_START_TIMEOUT_MS = 120000
 
+-- Progress is shown for the first discovery (the whole project scan) and for
+-- any later batch that has to wait on the server. neotest re-discovers a file's
+-- whole folder each time a file is opened, which is fast and would be noisy.
 local discovery_state = {
   active_count = 0,
   progress_id = nil,
   had_error = false,
   phase = nil,
   warned = false,
+  initial_done = false,
 }
+
+---Show a message on the shared discovery progress message, starting it if needed.
+---@param message string
+local function show_progress(message)
+  if discovery_state.progress_id then
+    progress.update(discovery_state.progress_id, message)
+  else
+    discovery_state.progress_id = progress.start(message)
+  end
+end
 
 ---Show a waiting stage on the shared discovery progress message, once per stage.
 ---@param phase string
@@ -23,7 +37,7 @@ local discovery_state = {
 local function set_phase(phase, message)
   if discovery_state.phase ~= phase then
     discovery_state.phase = phase
-    progress.update(discovery_state.progress_id, message)
+    show_progress(message)
   end
 end
 
@@ -167,15 +181,17 @@ function NeotestAdapter.discover_positions(file_path)
   local file_name = nio.fn.fnamemodify(file_path, ':t')
 
   discovery_state.active_count = discovery_state.active_count + 1
-  if discovery_state.active_count == 1 then
-    discovery_state.progress_id = progress.start('Discovering tests...')
+  if discovery_state.active_count == 1 and not discovery_state.initial_done then
+    show_progress('Discovering tests...')
   end
 
   local err, result
   local client = wait_for_server()
   if client then
     discovery_state.phase = 'discovering'
-    progress.update(discovery_state.progress_id, 'Discovering: ' .. file_name)
+    if discovery_state.progress_id then
+      progress.update(discovery_state.progress_id, 'Discovering: ' .. file_name)
+    end
 
     local bufnr = nio.fn.bufnr(file_path)
     if bufnr == -1 then
@@ -195,10 +211,12 @@ function NeotestAdapter.discover_positions(file_path)
 
   discovery_state.active_count = discovery_state.active_count - 1
   if discovery_state.active_count == 0 then
+    local success = not discovery_state.had_error
     if discovery_state.progress_id then
-      local success = not discovery_state.had_error
       progress.finish(discovery_state.progress_id, success and 'Tests discovered' or 'Test discovery failed', success)
     end
+    -- A failed first discovery keeps showing progress on the next attempt
+    discovery_state.initial_done = discovery_state.initial_done or success
     discovery_state.progress_id = nil
     discovery_state.had_error = false
     discovery_state.phase = nil

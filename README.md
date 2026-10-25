@@ -101,7 +101,9 @@ require("ruby-lsp").setup({
 
   -- Neotest test discovery options
   test_discovery = {
-    progress = true, -- show native progress messages while discovering tests
+    -- show native progress messages while discovering the project's tests,
+    -- or while discovery waits for Ruby LSP to start or finish indexing
+    progress = true,
   },
 })
 ```

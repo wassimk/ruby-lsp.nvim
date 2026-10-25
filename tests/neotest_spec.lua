@@ -294,7 +294,7 @@ describe('neotest adapter', function()
   describe('discover_positions', function()
     local utils = require('ruby-lsp.utils')
     local progress = require('ruby-lsp.progress')
-    local original_progress, progress_calls
+    local original_progress, progress_calls, discovery
 
     local function server_client(id)
       return helpers.mock_client({
@@ -313,6 +313,9 @@ describe('neotest adapter', function()
     end
 
     before_each(function()
+      -- Fresh adapter each test, since it remembers whether the first discovery ran
+      package.loaded['ruby-lsp.neotest'] = nil
+      discovery = require('ruby-lsp.neotest')
       on_sleep = nil
       progress_calls = {}
       original_progress = { start = progress.start, update = progress.update, finish = progress.finish }
@@ -352,7 +355,7 @@ describe('neotest adapter', function()
       helpers.lsp_clients = { server_client(101) }
       utils.on_indexing_complete(101)
 
-      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+      local tree = discovery.discover_positions('/project/test/foo_test.rb')
 
       assert.equals('foo_test.rb', tree[1].name)
       assert.same({ 'start', 'finish' }, { progress_calls[1][1], progress_calls[#progress_calls][1] })
@@ -369,7 +372,7 @@ describe('neotest adapter', function()
         end
       end
 
-      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+      local tree = discovery.discover_positions('/project/test/foo_test.rb')
 
       assert.is_not_nil(tree)
       assert.equals(0, #helpers.notifications)
@@ -386,7 +389,7 @@ describe('neotest adapter', function()
         end
       end
 
-      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+      local tree = discovery.discover_positions('/project/test/foo_test.rb')
 
       assert.is_not_nil(tree)
       assert.is_true(vim.tbl_contains(messages(), 'Waiting for Ruby LSP to start...'))
@@ -395,12 +398,46 @@ describe('neotest adapter', function()
     it('gives up and reports failure when the server never starts', function()
       on_sleep = function() end
 
-      local tree = adapter.discover_positions('/project/test/foo_test.rb')
+      local tree = discovery.discover_positions('/project/test/foo_test.rb')
 
       assert.is_nil(tree)
       assert.equals(1, #helpers.notifications)
       assert.truthy(helpers.notifications[1].msg:find('timed out waiting for the ruby_lsp server to start'))
       assert.same({ 'finish', 'Test discovery failed', false }, progress_calls[#progress_calls])
+    end)
+    it('stays silent when re-discovering after the first discovery', function()
+      helpers.lsp_clients = { server_client(104) }
+      utils.on_indexing_complete(104)
+      discovery.discover_positions('/project/test/foo_test.rb')
+      progress_calls = {}
+
+      local tree = discovery.discover_positions('/project/test/bar_test.rb')
+
+      assert.is_not_nil(tree)
+      assert.same({}, progress_calls)
+    end)
+
+    it('shows progress again when a later discovery waits for indexing', function()
+      helpers.lsp_clients = { server_client(105) }
+      utils.on_indexing_complete(105)
+      discovery.discover_positions('/project/test/foo_test.rb')
+      progress_calls = {}
+
+      -- Restarted server that has not finished indexing yet
+      helpers.lsp_clients = { server_client(106) }
+      local slept = 0
+      on_sleep = function(ms)
+        slept = slept + ms
+        if slept >= 1000 then
+          utils.on_indexing_complete(106)
+        end
+      end
+
+      local tree = discovery.discover_positions('/project/test/foo_test.rb')
+
+      assert.is_not_nil(tree)
+      assert.same({ 'start', 'Waiting for Ruby LSP to finish indexing...' }, progress_calls[1])
+      assert.same({ 'finish', 'Tests discovered', true }, progress_calls[#progress_calls])
     end)
   end)
 end)
