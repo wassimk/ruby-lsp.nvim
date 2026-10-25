@@ -109,6 +109,31 @@ describe('commands', function()
       assert.same({ win = 0, pos = { 5, 0 } }, cursor_calls[1])
     end)
 
+    it('labels selection items by file name without the line fragment', function()
+      local labels = {}
+      vim.ui.select = function(items, opts, on_choice)
+        for _, item in ipairs(items) do
+          table.insert(labels, opts.format_item(item))
+        end
+        on_choice(nil)
+      end
+
+      commands.open_file({
+        arguments = { { 'file:///app/config/routes.rb#L3', 'file:///app/views/posts/index.html.erb' } },
+      })
+
+      assert.same({ 'routes.rb', 'index.html.erb' }, labels)
+    end)
+
+    it('decodes percent-encoded paths', function()
+      commands.open_file({
+        arguments = { { 'file:///my%20app/app/views/posts/show.html.erb#L2' } },
+      })
+
+      assert.equals('edit /my app/app/views/posts/show.html.erb', cmd_calls[1])
+      assert.same({ win = 0, pos = { 2, 0 } }, cursor_calls[1])
+    end)
+
     it('does nothing when user cancels selection', function()
       vim.ui.select = function(items, opts, on_choice)
         on_choice(nil)
@@ -190,6 +215,15 @@ describe('commands', function()
       assert.equals(1, #mock_executor.run_calls)
       assert.equals('bundle exec rake db:migrate', mock_executor.run_calls[1].cmd)
       assert.is_true(mock_executor.run_calls[1].opts.keep_open)
+    end)
+
+    it('runs a ruby-lsp-rails migration command unchanged', function()
+      local cmd = '/usr/bin/ruby bin/rails db:migrate VERSION=20261025180550'
+
+      commands.run_task({ arguments = { cmd } })
+
+      assert.equals(1, #mock_executor.run_calls)
+      assert.equals(cmd, mock_executor.run_calls[1].cmd)
     end)
 
     it('passes configured keep_open to executor', function()
