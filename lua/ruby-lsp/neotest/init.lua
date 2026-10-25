@@ -190,7 +190,7 @@ function NeotestAdapter.discover_positions(file_path)
   if client then
     discovery_state.phase = 'discovering'
     if discovery_state.progress_id then
-      progress.update(discovery_state.progress_id, 'Discovering: ' .. file_name)
+      progress.update(discovery_state.progress_id, 'Discovering tests: ' .. file_name)
     end
 
     local bufnr = nio.fn.bufnr(file_path)
