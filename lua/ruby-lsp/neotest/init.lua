@@ -4,11 +4,70 @@ local utils = require('ruby-lsp.utils')
 
 local NeotestAdapter = { name = 'ruby-lsp' }
 
+local POLL_MS = 100
+-- Indexing has no time limit since large projects can take minutes on a cold
+-- start, but a server that never starts (e.g. a broken bundle) gives up.
+local CLIENT_START_TIMEOUT_MS = 120000
+
+-- Progress is shown for the first discovery (the whole project scan) and for
+-- any later batch that has to wait on the server. neotest re-discovers a file's
+-- whole folder each time a file is opened, which is fast and would be noisy.
 local discovery_state = {
   active_count = 0,
   progress_id = nil,
   had_error = false,
+  phase = nil,
+  warned = false,
+  initial_done = false,
 }
+
+---Show a message on the shared discovery progress message, starting it if needed.
+---@param message string
+local function show_progress(message)
+  if discovery_state.progress_id then
+    progress.update(discovery_state.progress_id, message)
+  else
+    discovery_state.progress_id = progress.start(message)
+  end
+end
+
+---Show a waiting stage on the shared discovery progress message, once per stage.
+---@param phase string
+---@param message string
+local function set_phase(phase, message)
+  if discovery_state.phase ~= phase then
+    discovery_state.phase = phase
+    show_progress(message)
+  end
+end
+
+---Wait for the ruby_lsp client to start and finish indexing.
+---@return vim.lsp.Client|nil client nil if the server never started
+local function wait_for_server()
+  local waited_for_client = 0
+  while true do
+    local client = utils.get_client()
+    if client and utils.is_indexing_complete() then
+      return client
+    end
+
+    if client then
+      set_phase('indexing', 'Waiting for Ruby LSP to finish indexing...')
+    else
+      if waited_for_client >= CLIENT_START_TIMEOUT_MS then
+        if not discovery_state.warned then
+          discovery_state.warned = true
+          vim.notify('ruby-lsp: timed out waiting for the ruby_lsp server to start', vim.log.levels.WARN)
+        end
+        return nil
+      end
+      set_phase('starting', 'Waiting for Ruby LSP to start...')
+      waited_for_client = waited_for_client + POLL_MS
+    end
+
+    nio.sleep(POLL_MS)
+  end
+end
 
 ---Perform an async LSP request compatible with nio's coroutine scheduler.
 ---@param client vim.lsp.Client
@@ -101,7 +160,10 @@ function NeotestAdapter.filter_dir(name)
 end
 
 function NeotestAdapter.is_test_file(file_path)
-  if not utils.get_client() then
+  -- Check that ruby_lsp is enabled rather than running. neotest scans for test
+  -- files once and caches the answer, often before the server has started.
+  -- The client check covers servers started without vim.lsp.enable().
+  if not vim.lsp.is_enabled('ruby_lsp') and not utils.get_client() then
     return false
   end
   if not file_path or not vim.endswith(file_path, '.rb') then
@@ -112,62 +174,53 @@ function NeotestAdapter.is_test_file(file_path)
 end
 
 ---Discover test positions via the ruby-lsp language server.
----Waits for server indexing to complete before making requests.
+---Waits for the server to start and finish indexing before making requests.
 ---@param file_path string
 ---@return neotest.Tree|nil
 function NeotestAdapter.discover_positions(file_path)
-  local client = utils.get_client()
-  if not client then
-    return nil
-  end
-
-  local timeout_ms = 30000
-  local elapsed = 0
-  while not utils.is_indexing_complete() do
-    if elapsed >= timeout_ms then
-      vim.notify('ruby-lsp: timed out waiting for server indexing', vim.log.levels.WARN)
-      return nil
-    end
-    nio.sleep(100)
-    elapsed = elapsed + 100
-  end
-  local params = {
-    textDocument = { uri = vim.uri_from_fname(file_path) },
-  }
-
-  local bufnr = nio.fn.bufnr(file_path)
-  if bufnr == -1 then
-    bufnr = 0
-  end
-
   local file_name = nio.fn.fnamemodify(file_path, ':t')
 
   discovery_state.active_count = discovery_state.active_count + 1
-  local is_first = discovery_state.active_count == 1
-
-  if is_first then
-    discovery_state.progress_id = progress.start('Discovering tests...')
-  else
-    progress.update(discovery_state.progress_id, 'Discovering: ' .. file_name)
+  if discovery_state.active_count == 1 and not discovery_state.initial_done then
+    show_progress('Discovering tests...')
   end
 
-  local err, result = lsp_request(client, 'rubyLsp/discoverTests', params, bufnr)
+  local err, result
+  local client = wait_for_server()
+  if client then
+    discovery_state.phase = 'discovering'
+    if discovery_state.progress_id then
+      progress.update(discovery_state.progress_id, 'Discovering tests: ' .. file_name)
+    end
+
+    local bufnr = nio.fn.bufnr(file_path)
+    if bufnr == -1 then
+      bufnr = 0
+    end
+    local params = {
+      textDocument = { uri = vim.uri_from_fname(file_path) },
+    }
+    err, result = lsp_request(client, 'rubyLsp/discoverTests', params, bufnr)
+  else
+    err = 'ruby_lsp server did not start'
+  end
 
   if err then
     discovery_state.had_error = true
   end
 
   discovery_state.active_count = discovery_state.active_count - 1
-  local is_last = discovery_state.active_count == 0
-
-  if is_last and discovery_state.progress_id then
+  if discovery_state.active_count == 0 then
     local success = not discovery_state.had_error
-    progress.finish(discovery_state.progress_id, success and 'Tests discovered' or 'Test discovery failed', success)
+    if discovery_state.progress_id then
+      progress.finish(discovery_state.progress_id, success and 'Tests discovered' or 'Test discovery failed', success)
+    end
+    -- A failed first discovery keeps showing progress on the next attempt
+    discovery_state.initial_done = discovery_state.initial_done or success
     discovery_state.progress_id = nil
-  end
-
-  if is_last then
     discovery_state.had_error = false
+    discovery_state.phase = nil
+    discovery_state.warned = false
   end
 
   if err or not result or type(result) ~= 'table' or #result == 0 then
