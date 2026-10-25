@@ -10,6 +10,35 @@ describe('utils', function()
     helpers.teardown_mocks()
   end)
 
+  describe('shell_split', function()
+    it('splits on whitespace', function()
+      assert.same(
+        { 'bundle', 'exec', 'rspec', 'spec/foo_spec.rb:12' },
+        utils.shell_split('bundle exec  rspec spec/foo_spec.rb:12')
+      )
+    end)
+
+    it('removes double quotes and unescapes $ inside them', function()
+      assert.same({ '--name', '/^FooTest#test_bar$/' }, utils.shell_split('--name "/^FooTest#test_bar\\$/"'))
+    end)
+
+    it('keeps single-quoted text literal', function()
+      assert.same({ '--name', '/^a b\\$/' }, utils.shell_split("--name '/^a b\\$/'"))
+    end)
+
+    it('keeps single quotes inside double quotes', function()
+      assert.same({ "/^FooTest#(''|test_bar)$/" }, utils.shell_split('"/^FooTest#(\'\'|test_bar)\\$/"'))
+    end)
+
+    it('escapes characters with a backslash outside quotes', function()
+      assert.same({ 'my file.rb' }, utils.shell_split('my\\ file.rb'))
+    end)
+
+    it('keeps an empty quoted argument', function()
+      assert.same({ 'a', '', 'b' }, utils.shell_split('a "" b'))
+    end)
+  end)
+
   describe('find_test_item', function()
     it('finds item at top level', function()
       local items = {

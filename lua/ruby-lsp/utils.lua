@@ -161,4 +161,66 @@ function M.validate_test_args(command)
   return file_path, test_id
 end
 
+-- Characters a backslash escapes inside double quotes, per POSIX shell rules
+local double_quote_escapes = { ['$'] = true, ['`'] = true, ['"'] = true, ['\\'] = true, ['\n'] = true }
+
+---Split a shell command string into arguments using POSIX shell quoting rules.
+---Ruby LSP resolves test commands as shell strings (e.g. `--name "/^FooTest#test_bar\$/"`),
+---so they can't be split on spaces when run without a shell.
+---@param cmd string
+---@return string[]
+function M.shell_split(cmd)
+  local args = {}
+  local current = {}
+  local in_arg = false
+  local quote = nil
+  local i = 1
+
+  while i <= #cmd do
+    local char = cmd:sub(i, i)
+
+    if quote == "'" then
+      if char == "'" then
+        quote = nil
+      else
+        table.insert(current, char)
+      end
+    elseif quote == '"' then
+      local next_char = cmd:sub(i + 1, i + 1)
+      if char == '"' then
+        quote = nil
+      elseif char == '\\' and double_quote_escapes[next_char] then
+        table.insert(current, next_char)
+        i = i + 1
+      else
+        table.insert(current, char)
+      end
+    elseif char == "'" or char == '"' then
+      quote = char
+      in_arg = true
+    elseif char == '\\' then
+      table.insert(current, cmd:sub(i + 1, i + 1))
+      in_arg = true
+      i = i + 1
+    elseif char:match('%s') then
+      if in_arg then
+        table.insert(args, table.concat(current))
+        current = {}
+        in_arg = false
+      end
+    else
+      table.insert(current, char)
+      in_arg = true
+    end
+
+    i = i + 1
+  end
+
+  if in_arg then
+    table.insert(args, table.concat(current))
+  end
+
+  return args
+end
+
 return M

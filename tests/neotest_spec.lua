@@ -127,6 +127,49 @@ describe('neotest adapter', function()
     end)
   end)
 
+  describe('build_spec', function()
+    before_each(function()
+      helpers.setup_mocks()
+    end)
+
+    after_each(function()
+      helpers.teardown_mocks()
+    end)
+
+    -- Ruby LSP returns a shell command string. Outside Rails, minitest tests are selected
+    -- with a quoted --name regex, so the quotes and the escaped $ must not reach ruby.
+    it('splits the resolved command with shell quoting rules', function()
+      local resolved = 'bundle exec ruby -Itest /path/test/calculator_test.rb'
+        .. ' --name "/^CalculatorTest#(\'\'|test_add|test_average)\\$/"'
+      helpers.lsp_clients = {
+        helpers.mock_client({
+          request = function(_, _, _, callback)
+            callback(nil, { commands = { resolved } })
+          end,
+        }),
+      }
+
+      local tree = make_node({
+        type = 'test',
+        id = '/path/test/calculator_test.rb::CalculatorTest#test_add',
+        path = '/path/test/calculator_test.rb',
+        lsp_test_item = { id = 'CalculatorTest#test_add', tags = { 'framework:minitest' } },
+      })
+
+      local spec = adapter.build_spec({ tree = tree })
+
+      assert.same({
+        'bundle',
+        'exec',
+        'ruby',
+        '-Itest',
+        '/path/test/calculator_test.rb',
+        '--name',
+        "/^CalculatorTest#(''|test_add|test_average)$/",
+      }, spec.command)
+    end)
+  end)
+
   describe('results', function()
     it('marks all tests as passed when exit code is 0', function()
       local node1 = make_node({
