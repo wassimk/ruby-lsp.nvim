@@ -1,7 +1,14 @@
 local nio = require('nio')
+local progress = require('ruby-lsp.progress')
 local utils = require('ruby-lsp.utils')
 
 local NeotestAdapter = { name = 'ruby-lsp' }
+
+local discovery_state = {
+  active_count = 0,
+  progress_id = nil,
+  had_error = false,
+}
 
 ---Perform an async LSP request compatible with nio's coroutine scheduler.
 ---@param client vim.lsp.Client
@@ -133,7 +140,35 @@ function NeotestAdapter.discover_positions(file_path)
     bufnr = 0
   end
 
+  local file_name = nio.fn.fnamemodify(file_path, ':t')
+
+  discovery_state.active_count = discovery_state.active_count + 1
+  local is_first = discovery_state.active_count == 1
+
+  if is_first then
+    discovery_state.progress_id = progress.start('Discovering tests...')
+  else
+    progress.update(discovery_state.progress_id, 'Discovering: ' .. file_name)
+  end
+
   local err, result = lsp_request(client, 'rubyLsp/discoverTests', params, bufnr)
+
+  if err then
+    discovery_state.had_error = true
+  end
+
+  discovery_state.active_count = discovery_state.active_count - 1
+  local is_last = discovery_state.active_count == 0
+
+  if is_last and discovery_state.progress_id then
+    local success = not discovery_state.had_error
+    progress.finish(discovery_state.progress_id, success and 'Tests discovered' or 'Test discovery failed', success)
+    discovery_state.progress_id = nil
+  end
+
+  if is_last then
+    discovery_state.had_error = false
+  end
 
   if err or not result or type(result) ~= 'table' or #result == 0 then
     return nil
@@ -151,7 +186,7 @@ function NeotestAdapter.discover_positions(file_path)
     {
       id = file_path,
       type = 'file',
-      name = nio.fn.fnamemodify(file_path, ':t'),
+      name = file_name,
       path = file_path,
       range = { 0, 0, last_line, 0 },
     },

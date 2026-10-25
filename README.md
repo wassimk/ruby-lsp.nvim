@@ -108,6 +108,11 @@ require("ruby-lsp").setup({
     auto_configure = true, -- register rdbg adapter if nvim-dap is available
     adapter = "ruby",      -- DAP adapter type name
   },
+
+  -- Neotest test discovery options
+  test_discovery = {
+    progress = true, -- show native progress messages while discovering tests
+  },
 })
 ```
 

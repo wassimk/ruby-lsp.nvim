@@ -37,6 +37,10 @@ describe('config', function()
     it('uses ruby DAP adapter by default', function()
       assert.equals('ruby', config.get().dap.adapter)
     end)
+
+    it('enables test discovery progress by default', function()
+      assert.is_true(config.get().test_discovery.progress)
+    end)
   end)
 
   describe('setup', function()
