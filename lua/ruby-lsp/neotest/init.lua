@@ -306,7 +306,7 @@ function NeotestAdapter.build_spec(args)
   end
 
   return {
-    command = vim.split(result.commands[1], ' '),
+    command = utils.shell_split(result.commands[1]),
     context = { pos_id = position.id, framework = framework },
   }
 end

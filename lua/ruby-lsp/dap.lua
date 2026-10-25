@@ -59,11 +59,8 @@ end
 ---
 ---@param shell_cmd string
 ---@return {command: string[], script: string[], script_args: string[]}
-local function parse_shell_command(shell_cmd)
-  local tokens = {}
-  for token in shell_cmd:gmatch('%S+') do
-    table.insert(tokens, token)
-  end
+function M.parse_shell_command(shell_cmd)
+  local tokens = utils.shell_split(shell_cmd)
 
   -- Strip leading "bundle exec" since the DAP adapter adds it
   if #tokens >= 2 and tokens[1] == 'bundle' and tokens[2] == 'exec' then
@@ -113,7 +110,7 @@ local function launch_dap(shell_cmd)
     return
   end
 
-  local parsed = parse_shell_command(shell_cmd)
+  local parsed = M.parse_shell_command(shell_cmd)
   local cfg = config.get().dap
 
   dap.run({
