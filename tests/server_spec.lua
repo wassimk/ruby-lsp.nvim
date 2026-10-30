@@ -134,6 +134,28 @@ describe('server', function()
     assert.are.equal(1, #fake.calls)
   end)
 
+  it('probe_sync with refresh runs the check again and updates the cache', function()
+    fake.sync_result = { code = 127, stdout = '' }
+    assert.is_false(server.probe_sync('/app'))
+    assert.are.equal(1, #fake.calls)
+
+    fake.sync_result = { code = 0, stdout = '0.26.11\n' }
+    local ok, version = server.probe_sync('/app', { refresh = true })
+    assert.is_true(ok)
+    assert.are.equal('0.26.11', version)
+    assert.are.equal(2, #fake.calls)
+
+    local got
+    server.probe('/app', function(probe_ok, probe_version)
+      got = { probe_ok, probe_version }
+    end)
+    vim.wait(100, function()
+      return got ~= nil
+    end)
+    assert.are.same({ true, '0.26.11' }, got)
+    assert.are.equal(2, #fake.calls)
+  end)
+
   it('probe_sync returns false without spawning when ruby-lsp is not executable', function()
     executable = 0
     local ok, version = server.probe_sync('/app')

@@ -29,9 +29,34 @@ local function bundles_ruby_lsp(root)
   return false
 end
 
+---Find the project root to check. `:checkhealth` runs in a scratch buffer, so use the
+---active ruby_lsp client's root, then the alternate file's project, then the cwd.
+---@return string
+local function project_root()
+  local client = utils.get_client()
+  if client and client.config.root_dir then
+    return client.config.root_dir
+  end
+
+  local alt = vim.fn.bufnr('#')
+  if
+    alt > 0
+    and vim.api.nvim_buf_is_valid(alt)
+    and vim.api.nvim_buf_get_name(alt) ~= ''
+    and vim.bo[alt].buftype == ''
+  then
+    local root = vim.fs.root(alt, { 'Gemfile', '.git' })
+    if root then
+      return root
+    end
+  end
+
+  return vim.fn.getcwd()
+end
+
 ---@param root string
 local function check_install(root)
-  local ok, version = server.probe_sync(root)
+  local ok, version = server.probe_sync(root, { refresh = true })
   if ok then
     vim.health.ok('ruby-lsp ' .. (version or '') .. ' runs from ' .. root)
   else
@@ -67,7 +92,7 @@ function M.check()
     vim.health.error('Neovim ' .. nvim_version .. ' is too old (minimum: ' .. utils.MIN_NVIM_VERSION .. ')')
   end
 
-  check_install(vim.fs.root(0, { 'Gemfile', '.git' }) or vim.fn.getcwd())
+  check_install(project_root())
 
   -- Check for Ruby LSP server in active clients
   local clients = vim.lsp.get_clients({ name = 'ruby_lsp' })

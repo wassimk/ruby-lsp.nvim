@@ -67,12 +67,14 @@ function M.probe(root, callback)
 end
 
 ---Blocking variant of `probe`, sharing the same cache.
+---With `opts.refresh`, skip the cached result, run the check, and cache the new result.
 ---@param root string
+---@param opts? { refresh?: boolean }
 ---@return boolean ok
 ---@return string|nil version
-function M.probe_sync(root)
+function M.probe_sync(root, opts)
   local cached = results[root]
-  if cached then
+  if cached and not (opts and opts.refresh) then
     return cached[1], cached[2]
   end
 
