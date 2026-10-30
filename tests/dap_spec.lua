@@ -41,6 +41,77 @@ describe('dap', function()
       assert.is_false(vim.tbl_contains(adapter.executable.args, '--stop-at-load'))
     end)
 
+    describe('adapter command', function()
+      local original_root
+
+      before_each(function()
+        original_root = vim.fs.root
+      end)
+
+      after_each(function()
+        vim.fs.root = original_root
+        vim.cmd('silent! %bwipeout!')
+      end)
+
+      local function resolve()
+        local adapter
+        fake_dap.adapters.ruby(function(a)
+          adapter = a
+        end, { command = { 'ruby', '-Itest' }, script = { 'test/foo_test.rb' }, script_args = { '--verbose' } })
+        return adapter
+      end
+
+      it('runs under bundler from the Gemfile root', function()
+        vim.fs.root = function()
+          return '/app'
+        end
+
+        local exe = resolve().executable
+
+        assert.equals('bundle', exe.command)
+        assert.equals('/app', exe.cwd)
+        assert.same({
+          'exec',
+          'rdbg',
+          '--open',
+          '--port',
+          '${port}',
+          '--command',
+          '--',
+          'bundle',
+          'exec',
+          'ruby',
+          '-Itest',
+          'test/foo_test.rb',
+          '--verbose',
+        }, exe.args)
+      end)
+
+      it('runs rdbg directly without a Gemfile', function()
+        vim.fs.root = function()
+          return nil
+        end
+        vim.cmd('silent edit /tmp/script.rb')
+
+        local exe = resolve().executable
+
+        assert.equals('rdbg', exe.command)
+        assert.equals(vim.uv.fs_realpath('/tmp'), exe.cwd)
+        assert.is_false(vim.tbl_contains(exe.args, 'bundle'))
+        assert.same({
+          '--open',
+          '--port',
+          '${port}',
+          '--command',
+          '--',
+          'ruby',
+          '-Itest',
+          'test/foo_test.rb',
+          '--verbose',
+        }, exe.args)
+      end)
+    end)
+
     -- rdbg pauses at startup so breakpoints are set before any code runs. Continue past
     -- that pause so the session stops at the first breakpoint instead.
     it('continues past the startup pause', function()

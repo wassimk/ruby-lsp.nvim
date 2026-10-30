@@ -3,6 +3,42 @@ local utils = require('ruby-lsp.utils')
 
 local M = {}
 
+---Find the Gemfile root for a buffer.
+---@param bufnr integer
+---@return string|nil
+function M.project_root(bufnr)
+  return vim.fs.root(bufnr, 'Gemfile')
+end
+
+---Build the rdbg executable for a buffer. Runs under Bundler from the Gemfile root when there
+---is one, otherwise runs rdbg directly from the buffer's directory.
+---@param bufnr integer
+---@param dap_config table
+---@return {command: string, args: string[], cwd: string}
+function M.executable(bufnr, dap_config)
+  local root = M.project_root(bufnr)
+  local args = { '--open', '--port', '${port}', '--command', '--' }
+  local command = 'rdbg'
+  local cwd
+
+  if root then
+    command = 'bundle'
+    args = vim.list_extend({ 'exec', 'rdbg' }, args)
+    vim.list_extend(args, { 'bundle', 'exec' })
+    cwd = root
+  else
+    cwd = vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
+  end
+
+  vim.list_extend(args, dap_config.command)
+  vim.list_extend(args, dap_config.script)
+  if dap_config.script_args then
+    vim.list_extend(args, dap_config.script_args)
+  end
+
+  return { command = command, args = args, cwd = cwd }
+end
+
 ---Register the rdbg DAP adapter if nvim-dap is available and no adapter is already set.
 function M.setup_adapter()
   local ok, dap = pcall(require, 'dap')
@@ -18,33 +54,14 @@ function M.setup_adapter()
   end
 
   dap.adapters[adapter_name] = function(callback, dap_config)
-    local args = {
-      'exec',
-      'rdbg',
-      '--open',
-      '--port',
-      '${port}',
-      '--command',
-      '--',
-      'bundle',
-      'exec',
-    }
-
-    vim.list_extend(args, dap_config.command)
-    vim.list_extend(args, dap_config.script)
-
-    if dap_config.script_args then
-      vim.list_extend(args, dap_config.script_args)
-    end
+    local bufnr = vim.api.nvim_get_current_buf()
+    local executable = M.executable(bufnr, dap_config)
 
     callback({
       type = 'server',
       host = '127.0.0.1',
       port = '${port}',
-      executable = {
-        command = 'bundle',
-        args = args,
-      },
+      executable = executable,
     })
   end
 
