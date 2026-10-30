@@ -51,19 +51,14 @@ require('notify').setup({ render = 'wrapped-compact', stages = 'static', timeout
 vim.notify = require('notify')
 require('snacks').setup({ picker = { enabled = true, ui_select = true } })
 
--- Ruby LSP, defined inline so the demo doesn't need nvim-lspconfig
+-- ruby-lsp.nvim configures and starts Ruby LSP. The sample has no RuboCop, so skip
+-- formatting and linting instead of warning about it.
 vim.lsp.config('ruby_lsp', {
-  cmd = { 'ruby-lsp' },
-  filetypes = { 'ruby' },
-  root_markers = { 'Gemfile', '.git' },
   init_options = {
-    enabledFeatureFlags = { fullTestDiscovery = true },
-    -- The sample has no RuboCop, so skip formatting and linting instead of warning about it
     formatter = 'none',
     linters = {},
   },
 })
-vim.lsp.enable('ruby_lsp')
 
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(args)

@@ -15,7 +15,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: latest
-          args: --color always --check lua/ tests/
+          args: --color always --check lsp/ lua/ tests/
   test:
     name: test
     runs-on: ubuntu-latest

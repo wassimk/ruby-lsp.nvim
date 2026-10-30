@@ -20,7 +20,7 @@ panvimdoc:
 	fi
 
 lint:
-	stylua --check lua/ tests/
+	stylua --check lsp/ lua/ tests/
 
 docs: panvimdoc
 	$(PANVIMDOC_DIR)/panvimdoc.sh \
