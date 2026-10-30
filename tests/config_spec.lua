@@ -41,6 +41,10 @@ describe('config', function()
     it('enables test discovery progress by default', function()
       assert.is_true(config.get().test_discovery.progress)
     end)
+
+    it('auto-starts the server by default', function()
+      assert.is_true(config.get().lsp.auto_start)
+    end)
   end)
 
   describe('setup', function()

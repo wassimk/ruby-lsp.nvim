@@ -86,6 +86,60 @@ function M.probe_sync(root)
   return ok, version
 end
 
+---Start ruby-lsp in the project root. Mirrors nvim-lspconfig's default cmd.
+---@param dispatchers vim.lsp.rpc.Dispatchers
+---@param config vim.lsp.ClientConfig
+---@return vim.lsp.rpc.PublicClient
+function M.cmd(dispatchers, config)
+  return vim.lsp.rpc.start(
+    { 'ruby-lsp' },
+    dispatchers,
+    config and config.root_dir and { cwd = config.cmd_cwd or config.root_dir }
+  )
+end
+
+---Whether the server should start for `root`, per `lsp.auto_start`.
+---When `auto_start` is false the user enabled ruby_lsp themselves, so start.
+---@param root string
+---@return boolean
+function M.should_start(root)
+  local auto_start = require('ruby-lsp.config').get().lsp.auto_start
+  if type(auto_start) == 'function' then
+    return auto_start(root) == true
+  end
+  return true
+end
+
+---Find the project root for `bufnr` and call `on_dir` only when ruby-lsp can run there.
+---Never notifies; when ruby-lsp is missing or broken the server just doesn't start.
+---@param bufnr integer
+---@param on_dir fun(root: string)
+function M.root_dir(bufnr, on_dir)
+  if vim.api.nvim_buf_get_name(bufnr) == '' or vim.bo[bufnr].buftype ~= '' then
+    return
+  end
+
+  local root = vim.fs.root(bufnr, { 'Gemfile', '.git' })
+  if not root or not M.should_start(root) then
+    return
+  end
+
+  local cmd = vim.lsp.config.ruby_lsp.cmd
+  if cmd == M.cmd then
+    M.probe(root, function(ok)
+      if ok then
+        on_dir(root)
+      end
+    end)
+  elseif type(cmd) == 'table' then
+    if cmd[1] and vim.fn.executable(cmd[1]) == 1 then
+      on_dir(root)
+    end
+  else
+    on_dir(root)
+  end
+end
+
 ---Clear the cache and pending queue. For tests only.
 function M._reset()
   results = {}

@@ -25,6 +25,10 @@ local defaults = {
   test_discovery = {
     progress = true,
   },
+
+  lsp = {
+    auto_start = true,
+  },
 }
 
 ---@type table

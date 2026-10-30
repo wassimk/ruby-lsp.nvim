@@ -77,6 +77,10 @@ function M.setup(opts)
   })
 
   local cfg = config.get()
+  if cfg.lsp.auto_start ~= false then
+    vim.lsp.enable('ruby_lsp')
+  end
+
   if cfg.dap.auto_configure then
     local dap_mod = require('ruby-lsp.dap')
     dap_mod.setup_adapter()

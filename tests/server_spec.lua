@@ -152,4 +152,238 @@ describe('server', function()
     end)
     assert.are.same({}, helpers.notifications)
   end)
+
+  describe('root_dir', function()
+    local config = require('ruby-lsp.config')
+    local original_root, original_probe, original_lsp_config
+    local root, probe_calls, lsp_cmd, bufnr
+
+    local function resolve(buf)
+      local got = {}
+      server.root_dir(buf or bufnr, function(dir)
+        table.insert(got, dir)
+      end)
+      return got
+    end
+
+    before_each(function()
+      config.setup()
+      root = '/app'
+      probe_calls = {}
+      lsp_cmd = server.cmd
+      bufnr = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_name(bufnr, '/app/app/models/user.rb')
+
+      original_root = vim.fs.root
+      original_probe = server.probe
+      original_lsp_config = vim.lsp.config
+
+      vim.fs.root = function()
+        return root
+      end
+      server.probe = function(dir, callback)
+        table.insert(probe_calls, { root = dir, callback = callback })
+      end
+      vim.lsp.config = {
+        ruby_lsp = setmetatable({}, {
+          __index = function(_, key)
+            if key == 'cmd' then
+              return lsp_cmd
+            end
+          end,
+        }),
+      }
+    end)
+
+    after_each(function()
+      vim.fs.root = original_root
+      server.probe = original_probe
+      vim.lsp.config = original_lsp_config
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+      config.setup()
+    end)
+
+    it('starts when the root has a working ruby-lsp', function()
+      local got = resolve()
+      assert.are.equal(1, #probe_calls)
+      assert.are.equal('/app', probe_calls[1].root)
+
+      probe_calls[1].callback(true, '0.26.11')
+      assert.are.same({ '/app' }, got)
+    end)
+
+    it('does nothing for a buffer without a file', function()
+      local scratch = vim.api.nvim_create_buf(false, true)
+      root = nil
+      local got = resolve(scratch)
+      vim.api.nvim_buf_delete(scratch, { force = true })
+
+      assert.are.same({}, got)
+      assert.are.equal(0, #probe_calls)
+      assert.are.same({}, helpers.notifications)
+    end)
+
+    it('does nothing for an unnamed buffer even when the cwd has a root', function()
+      local unnamed = vim.api.nvim_create_buf(true, false)
+      local got = resolve(unnamed)
+      vim.api.nvim_buf_delete(unnamed, { force = true })
+
+      assert.are.same({}, got)
+      assert.are.equal(0, #probe_calls)
+    end)
+
+    it('does nothing when no root is found', function()
+      root = nil
+      assert.are.same({}, resolve())
+      assert.are.equal(0, #probe_calls)
+    end)
+
+    it('does not start when the version check fails', function()
+      local got = resolve()
+      probe_calls[1].callback(false, nil)
+
+      assert.are.same({}, got)
+      assert.are.same({}, helpers.notifications)
+    end)
+
+    it('does not start when auto_start returns false for the root', function()
+      config.setup({
+        lsp = {
+          auto_start = function(dir)
+            return dir ~= '/app'
+          end,
+        },
+      })
+
+      assert.are.same({}, resolve())
+      assert.are.equal(0, #probe_calls)
+    end)
+
+    it('passes the root to auto_start', function()
+      local received
+      config.setup({
+        lsp = {
+          auto_start = function(dir)
+            received = dir
+            return true
+          end,
+        },
+      })
+
+      resolve()
+      assert.are.equal('/app', received)
+      assert.are.equal(1, #probe_calls)
+    end)
+
+    it('checks only the executable for a list cmd override', function()
+      lsp_cmd = { 'bundle', 'exec', 'ruby-lsp' }
+      local checked = {}
+      vim.fn.executable = function(name)
+        table.insert(checked, name)
+        return name == 'bundle' and 1 or 0
+      end
+
+      assert.are.same({ '/app' }, resolve())
+      assert.are.same({ 'bundle' }, checked)
+      assert.are.equal(0, #probe_calls)
+    end)
+
+    it('does not start a list cmd override that is not executable', function()
+      lsp_cmd = { 'bundle', 'exec', 'ruby-lsp' }
+      executable = 0
+
+      assert.are.same({}, resolve())
+      assert.are.equal(0, #probe_calls)
+      assert.are.same({}, helpers.notifications)
+    end)
+
+    it('trusts a user cmd function without checking', function()
+      lsp_cmd = function() end
+      executable = 0
+
+      assert.are.same({ '/app' }, resolve())
+      assert.are.equal(0, #probe_calls)
+    end)
+
+    it('starts every buffer waiting on the same root', function()
+      server.probe = original_probe
+      server._reset()
+
+      local first = resolve()
+      local other = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_name(other, '/app/app/models/post.rb')
+      local second = resolve(other)
+      vim.api.nvim_buf_delete(other, { force = true })
+
+      assert.are.equal(1, #fake.calls)
+      complete(1, { code = 0, stdout = '0.26.11\n' })
+      assert.are.same({ '/app' }, first)
+      assert.are.same({ '/app' }, second)
+    end)
+  end)
+
+  describe('should_start', function()
+    local config = require('ruby-lsp.config')
+
+    after_each(function()
+      config.setup()
+    end)
+
+    it('starts by default', function()
+      config.setup()
+      assert.is_true(server.should_start('/app'))
+    end)
+
+    it('starts when auto_start is false because the user enabled it', function()
+      config.setup({ lsp = { auto_start = false } })
+      assert.is_true(server.should_start('/app'))
+    end)
+
+    it('starts only when the auto_start function returns true', function()
+      config.setup({
+        lsp = {
+          auto_start = function()
+            return 'yes'
+          end,
+        },
+      })
+      assert.is_false(server.should_start('/app'))
+    end)
+  end)
+
+  describe('cmd', function()
+    local original_start
+
+    before_each(function()
+      original_start = vim.lsp.rpc.start
+    end)
+
+    after_each(function()
+      vim.lsp.rpc.start = original_start
+    end)
+
+    it('starts ruby-lsp in the root directory', function()
+      local got
+      vim.lsp.rpc.start = function(cmd, dispatchers, opts)
+        got = { cmd = cmd, dispatchers = dispatchers, opts = opts }
+        return 'client'
+      end
+      local dispatchers = {}
+
+      assert.are.equal('client', server.cmd(dispatchers, { root_dir = '/app' }))
+      assert.are.same({ 'ruby-lsp' }, got.cmd)
+      assert.are.equal(dispatchers, got.dispatchers)
+      assert.are.same({ cwd = '/app' }, got.opts)
+    end)
+
+    it('prefers cmd_cwd over root_dir', function()
+      local got
+      vim.lsp.rpc.start = function(_, _, opts)
+        got = opts
+      end
+
+      server.cmd({}, { root_dir = '/app', cmd_cwd = '/app/sub' })
+      assert.are.same({ cwd = '/app/sub' }, got)
+    end)
+  end)
 end)
