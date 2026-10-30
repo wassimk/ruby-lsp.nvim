@@ -1,7 +1,51 @@
 local config = require('ruby-lsp.config')
+local server = require('ruby-lsp.server')
 local utils = require('ruby-lsp.utils')
 
 local M = {}
+
+---Check whether the Gemfile.lock in `root` lists ruby-lsp itself (not an addon).
+---@param root string
+---@return boolean
+local function bundles_ruby_lsp(root)
+  local path = root .. '/Gemfile.lock'
+  if vim.fn.filereadable(path) == 0 then
+    return false
+  end
+  for _, line in ipairs(vim.fn.readfile(path)) do
+    if line:match('^%s+ruby%-lsp %(') then
+      return true
+    end
+  end
+  return false
+end
+
+---@param root string
+local function check_install(root)
+  local ok, version = server.probe_sync(root)
+  if ok then
+    vim.health.ok('ruby-lsp ' .. (version or '') .. ' runs from ' .. root)
+  else
+    vim.health.error('ruby-lsp does not run from ' .. root .. ', so the server will not start', {
+      'Install it with: gem install ruby-lsp',
+      'With rbenv, rvm, mise, or asdf, install it for the Ruby version this project uses.',
+    })
+  end
+
+  local auto_start = config.get().lsp.auto_start
+  if type(auto_start) == 'function' then
+    vim.health.info('auto_start: function')
+  else
+    vim.health.info('auto_start: ' .. (auto_start and 'on' or 'off'))
+  end
+
+  if bundles_ruby_lsp(root) then
+    vim.health.warn('ruby-lsp is in ' .. root .. '/Gemfile.lock', {
+      'Bundling ruby-lsp is not supported by ruby-lsp.nvim.',
+      'The global gem is recommended: gem install ruby-lsp',
+    })
+  end
+end
 
 function M.check()
   vim.health.start('ruby-lsp.nvim')
@@ -13,6 +57,8 @@ function M.check()
   else
     vim.health.error('Neovim ' .. nvim_version .. ' is too old (minimum: ' .. utils.MIN_NVIM_VERSION .. ')')
   end
+
+  check_install(vim.fs.root(0, { 'Gemfile', '.git' }) or vim.fn.getcwd())
 
   -- Check for Ruby LSP server in active clients
   local clients = vim.lsp.get_clients({ name = 'ruby_lsp' })
@@ -40,7 +86,7 @@ function M.check()
     if utils.full_test_discovery_enabled(clients[1]) then
       vim.health.ok('fullTestDiscovery feature flag is enabled')
     else
-      vim.health.warn('fullTestDiscovery feature flag is not enabled', {
+      vim.health.warn('fullTestDiscovery feature flag is turned off', {
         utils.FEATURE_FLAG_MSG,
       })
     end
@@ -92,6 +138,12 @@ function M.check()
   local dap_ok, dap = pcall(require, 'dap')
   if dap_ok then
     vim.health.ok('nvim-dap is installed')
+
+    if vim.fn.executable('rdbg') == 1 then
+      vim.health.ok('rdbg is installed')
+    else
+      vim.health.info('rdbg not found (debugging needs the debug gem: gem install debug)')
+    end
 
     local adapter_name = config.get().dap.adapter
     if dap.adapters[adapter_name] then

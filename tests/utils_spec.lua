@@ -179,20 +179,26 @@ describe('utils', function()
       assert.is_true(utils.full_test_discovery_enabled(client))
     end)
 
-    it('returns false when flag is not set', function()
+    it('returns true when flag is not set', function()
       local client = { config = { init_options = { enabledFeatureFlags = {} } } }
 
-      assert.is_false(utils.full_test_discovery_enabled(client))
+      assert.is_true(utils.full_test_discovery_enabled(client))
     end)
 
-    it('returns false when no enabledFeatureFlags', function()
+    it('returns true when no enabledFeatureFlags', function()
       local client = { config = { init_options = {} } }
 
-      assert.is_false(utils.full_test_discovery_enabled(client))
+      assert.is_true(utils.full_test_discovery_enabled(client))
     end)
 
-    it('returns false when no init_options', function()
+    it('returns true when no init_options', function()
       local client = { config = {} }
+
+      assert.is_true(utils.full_test_discovery_enabled(client))
+    end)
+
+    it('returns false when the flag is explicitly turned off', function()
+      local client = { config = { init_options = { enabledFeatureFlags = { fullTestDiscovery = false } } } }
 
       assert.is_false(utils.full_test_discovery_enabled(client))
     end)
@@ -223,9 +229,13 @@ describe('utils', function()
       assert.equals(vim.log.levels.ERROR, helpers.notifications[1].level)
     end)
 
-    it('returns nil when feature flag is not enabled', function()
+    it('returns nil when feature flag is turned off', function()
       helpers.lsp_clients = {
-        { id = 1, name = 'ruby_lsp', config = { init_options = { enabledFeatureFlags = {} } } },
+        {
+          id = 1,
+          name = 'ruby_lsp',
+          config = { init_options = { enabledFeatureFlags = { fullTestDiscovery = false } } },
+        },
       }
 
       local file_path, test_id = utils.validate_test_args({

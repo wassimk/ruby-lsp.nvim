@@ -2,9 +2,8 @@ local M = {}
 
 M.MIN_NVIM_VERSION = '0.12'
 M.MIN_RUBY_LSP_VERSION = '0.23.0'
-M.FEATURE_FLAG_MSG = 'ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n'
-  .. 'Add to your ruby_lsp LSP config:\n'
-  .. '  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }'
+M.FEATURE_FLAG_MSG = 'ruby-lsp.nvim needs the fullTestDiscovery feature flag, which it turns on by default.\n'
+  .. 'Remove the fullTestDiscovery = false override from your ruby_lsp config.'
 
 ---@type table<integer, boolean>
 local indexing_complete = {}
@@ -86,7 +85,7 @@ end
 function M.full_test_discovery_enabled(client)
   local init_options = client.config.init_options or {}
   local flags = init_options.enabledFeatureFlags or {}
-  return flags.fullTestDiscovery == true
+  return flags.fullTestDiscovery ~= false
 end
 
 ---Get the first active ruby_lsp client, or nil if none is running.
