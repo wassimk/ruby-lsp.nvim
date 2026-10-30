@@ -68,4 +68,35 @@ describe('setup', function()
     assert.are.equal('/app', same.cmd_cwd)
     assert.is_false(c.reuse_client(client, other))
   end)
+
+  it('adds user commands on attach only when enabled', function()
+    local buf = vim.api.nvim_create_buf(true, false)
+    local original_get = vim.lsp.get_client_by_id
+    local client = { id = 7, name = 'ruby_lsp', request = function() end }
+    local other = { id = 8, name = 'lua_ls', request = function() end }
+    vim.lsp.get_client_by_id = function(id)
+      return id == 7 and client or other
+    end
+
+    local function attach(id)
+      vim.api.nvim_exec_autocmds('LspAttach', {
+        group = 'RubyLsp',
+        buffer = buf,
+        data = { client_id = id },
+      })
+    end
+
+    ruby_lsp.setup({ dap = { auto_configure = false } })
+    attach(7)
+    assert.is_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
+
+    ruby_lsp.setup({ dap = { auto_configure = false }, user_commands = true })
+    attach(8)
+    assert.is_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
+    attach(7)
+    assert.is_not_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
+
+    vim.lsp.get_client_by_id = original_get
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
 end)

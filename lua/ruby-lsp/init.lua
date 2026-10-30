@@ -39,6 +39,10 @@ function M.setup(opts)
       if not client or client.name ~= 'ruby_lsp' then
         return
       end
+      -- per buffer, so it runs before the per-client guard below
+      if config.get().user_commands then
+        require('ruby-lsp.user_commands').attach(client, ev.buf)
+      end
       if client._ruby_lsp_nvim_attached then
         return
       end

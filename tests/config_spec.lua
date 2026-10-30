@@ -49,6 +49,10 @@ describe('config', function()
     it('auto-starts the server by default', function()
       assert.is_true(config.get().lsp.auto_start)
     end)
+
+    it('leaves user commands off by default', function()
+      assert.is_false(config.get().user_commands)
+    end)
   end)
 
   describe('setup', function()

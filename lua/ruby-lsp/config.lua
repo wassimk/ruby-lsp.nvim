@@ -30,6 +30,8 @@ local defaults = {
   lsp = {
     auto_start = true,
   },
+
+  user_commands = false,
 }
 
 ---@type table
