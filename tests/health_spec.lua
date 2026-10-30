@@ -101,15 +101,42 @@ describe('health', function()
       assert.truthy(r)
     end)
 
-    it('warns when ruby-lsp is in the Gemfile.lock', function()
-      write_lock({ 'GEM', '  specs:', '    ruby-lsp (0.26.0)' })
+    it('warns when ruby-lsp is a direct dependency in the Gemfile.lock', function()
+      write_lock({
+        'GEM',
+        '  specs:',
+        '    ruby-lsp (0.26.11)',
+        '',
+        'DEPENDENCIES',
+        '  rails',
+        '  ruby-lsp',
+        '',
+        'BUNDLED WITH',
+        '   2.5.0',
+      })
       health.check()
 
       assert.truthy(find('warn', 'not supported'))
     end)
 
-    it('does not warn for ruby-lsp-rails in the Gemfile.lock', function()
-      write_lock({ 'GEM', '  specs:', '    ruby-lsp-rails (0.4.0)', '    ruby-lsp-rspec (0.1.0)' })
+    it('does not warn when ruby-lsp is only a dependency of an add-on', function()
+      write_lock({
+        'GEM',
+        '  specs:',
+        '    ruby-lsp (0.26.11)',
+        '    ruby-lsp-rails (0.4.8)',
+        '      ruby-lsp (>= 0.26.0, < 0.27.0)',
+        '    ruby-lsp-rspec (0.1.0)',
+        '      ruby-lsp (>= 0.26.0, < 0.27.0)',
+        '',
+        'DEPENDENCIES',
+        '  rails',
+        '  ruby-lsp-rails',
+        '  ruby-lsp-rspec',
+        '',
+        'BUNDLED WITH',
+        '   2.5.0',
+      })
       health.check()
 
       assert.is_nil(find('warn', 'not supported'))

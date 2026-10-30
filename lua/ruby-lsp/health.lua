@@ -4,7 +4,8 @@ local utils = require('ruby-lsp.utils')
 
 local M = {}
 
----Check whether the Gemfile.lock in `root` lists ruby-lsp itself (not an addon).
+---Check whether the Gemfile.lock in `root` lists ruby-lsp as a direct dependency.
+---Add-ons such as ruby-lsp-rails resolve ruby-lsp too, so only DEPENDENCIES counts.
 ---@param root string
 ---@return boolean
 local function bundles_ruby_lsp(root)
@@ -12,9 +13,17 @@ local function bundles_ruby_lsp(root)
   if vim.fn.filereadable(path) == 0 then
     return false
   end
+  local in_dependencies = false
   for _, line in ipairs(vim.fn.readfile(path)) do
-    if line:match('^%s+ruby%-lsp %(') then
-      return true
+    if line == 'DEPENDENCIES' then
+      in_dependencies = true
+    elseif in_dependencies then
+      if line == '' then
+        break
+      end
+      if line:match('^  ruby%-lsp$') or line:match('^  ruby%-lsp[ !(]') then
+        return true
+      end
     end
   end
   return false
