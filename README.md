@@ -50,16 +50,20 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 {
   "wassimk/ruby-lsp.nvim",
   version = "*",
-  ft = { "ruby", "eruby" },
+  lazy = false,
   opts = {},
 }
 ```
+
+Don't lazy-load the plugin. Its `lsp/ruby_lsp.lua` must be on the runtimepath before Ruby LSP starts, and loading it is cheap. When nvim-dap is installed, `setup()` also loads nvim-dap at startup to register the debug adapter.
+
+If you're upgrading and already start Ruby LSP yourself, remove your `vim.lsp.enable("ruby_lsp")` call and your `fullTestDiscovery` setting. Or set `lsp.auto_start = false` and keep your `vim.lsp.enable("ruby_lsp")` call, as long as the plugin still isn't lazy-loaded.
 
 ## 🖥️ Ruby LSP Server
 
 The plugin configures and starts Ruby LSP for you, in any project with a `Gemfile` or `.git` directory. You don't need nvim-lspconfig or a `ruby_lsp` config of your own. If nvim-lspconfig is installed, its config merges with the plugin's without conflict.
 
-Before starting, the plugin checks that `ruby-lsp` runs from the project root. When it doesn't, the server stays off and nothing is shown. Run `:checkhealth ruby-lsp` to see why.
+Before starting, the plugin checks that `ruby-lsp --version` runs from the project root. If you set `cmd` to a list such as `{ "bundle", "exec", "ruby-lsp" }`, it only checks that the first entry is executable. When the check fails, the server stays off and nothing is shown. Run `:checkhealth ruby-lsp` to see why.
 
 Set `lsp.auto_start` to choose where the server starts. `true` starts it in every Ruby project, and `false` leaves it to you to call `vim.lsp.enable("ruby_lsp")`. A function decides per project. This one skips projects that use solargraph:
 
@@ -98,44 +102,6 @@ require("neotest").setup({
 ```
 
 With neotest installed, the **Run** code lens goes through neotest too, so results show up in neotest's signs, summary, and output. **Run In Terminal** always uses a terminal.
-
-<details>
-<summary>Watch mode for Minitest</summary>
-
-neotest's watch mode reruns tests when files they depend on change, using a treesitter query to find those files. Its built-in Ruby query only covers RSpec. This query keeps the RSpec patterns and adds one for Minitest classes. Setting it replaces neotest's default query for Ruby.
-
-```lua
-require("neotest").setup({
-  watch = {
-    symbol_queries = {
-      ruby = [[
-        ;query
-        ;rspec - class name
-        (call
-          method: (identifier) @_ (#match? @_ "^(describe|context)")
-          arguments: (argument_list (constant) @symbol)
-        )
-
-        ;rspec - namespaced class name
-        (call
-          method: (identifier)
-          arguments: (argument_list
-            (scope_resolution
-              name: (constant) @symbol))
-        )
-
-        ;minitest - class being tested
-        (class
-          name: ((constant) @symbol)
-          (#gsub! @symbol "(.*)Test$" "%1")
-        )
-      ]],
-    },
-  },
-})
-```
-
-</details>
 
 ## 🐞 Debugging
 
@@ -182,7 +148,7 @@ require("ruby-lsp").setup({
   dap = {
     auto_configure = true, -- register the rdbg adapter when nvim-dap is available
     adapter = "ruby",      -- debug adapter type name
-    configurations = true, -- add the debug nearest test and current file configurations
+    configurations = true, -- add the Ruby LSP debug configurations to nvim-dap
   },
 
   -- Neotest test discovery
