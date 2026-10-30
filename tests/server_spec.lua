@@ -297,12 +297,26 @@ describe('server', function()
       assert.are.same({}, helpers.notifications)
     end)
 
-    it('trusts a user cmd function without checking', function()
+    it('checks that ruby-lsp runs for a foreign cmd function and skips a failed check', function()
       lsp_cmd = function() end
-      executable = 0
 
-      assert.are.same({ '/app' }, resolve())
-      assert.are.equal(0, #probe_calls)
+      local got = resolve()
+      assert.are.equal(1, #probe_calls)
+      assert.are.equal('/app', probe_calls[1].root)
+
+      probe_calls[1].callback(false, nil)
+      assert.are.same({}, got)
+      assert.are.same({}, helpers.notifications)
+    end)
+
+    it('starts with a foreign cmd function when the check succeeds', function()
+      lsp_cmd = function() end
+
+      local got = resolve()
+      assert.are.equal(1, #probe_calls)
+
+      probe_calls[1].callback(true, '0.26.11')
+      assert.are.same({ '/app' }, got)
     end)
 
     it('starts every buffer waiting on the same root', function()

@@ -111,6 +111,8 @@ function M.should_start(root)
 end
 
 ---Find the project root for `bufnr` and call `on_dir` only when ruby-lsp can run there.
+---A list `cmd` override only needs its executable on the path. Any `cmd` function
+---(ours, nvim-lspconfig's, or a user's) runs the cached `ruby-lsp --version` check.
 ---Never notifies; when ruby-lsp is missing or broken the server just doesn't start.
 ---@param bufnr integer
 ---@param on_dir fun(root: string)
@@ -125,19 +127,18 @@ function M.root_dir(bufnr, on_dir)
   end
 
   local cmd = vim.lsp.config.ruby_lsp.cmd
-  if cmd == M.cmd then
-    M.probe(root, function(ok)
-      if ok then
-        on_dir(root)
-      end
-    end)
-  elseif type(cmd) == 'table' then
+  if type(cmd) == 'table' then
     if cmd[1] and vim.fn.executable(cmd[1]) == 1 then
       on_dir(root)
     end
-  else
-    on_dir(root)
+    return
   end
+
+  M.probe(root, function(ok)
+    if ok then
+      on_dir(root)
+    end
+  end)
 end
 
 ---Clear the cache and pending queue. For tests only.
