@@ -131,5 +131,14 @@ describe('user_commands', function()
       end
       assert.equals(0, #vim.fn.getqflist())
     end)
+
+    it('notifies with the inspected error when the message is not a string', function()
+      response.err = { code = -32603, message = vim.NIL }
+      run('RubyLspShowDependencies')
+      assert.equals(1, #helpers.notifications)
+      assert.matches('^ruby%-lsp: could not show dependencies: ', helpers.notifications[1].msg)
+      assert.matches('%-32603', helpers.notifications[1].msg)
+      assert.equals(vim.log.levels.ERROR, helpers.notifications[1].level)
+    end)
   end)
 end)

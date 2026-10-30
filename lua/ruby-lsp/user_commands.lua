@@ -3,7 +3,8 @@ local M = {}
 ---@param what string
 ---@param err table
 local function notify_error(what, err)
-  vim.notify('ruby-lsp: ' .. what .. ': ' .. (err.message or vim.inspect(err)), vim.log.levels.ERROR)
+  local detail = type(err.message) == 'string' and err.message or vim.inspect(err)
+  vim.notify('ruby-lsp: ' .. what .. ': ' .. detail, vim.log.levels.ERROR)
 end
 
 ---@param client vim.lsp.Client
