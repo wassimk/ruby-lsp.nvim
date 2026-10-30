@@ -20,6 +20,7 @@ local defaults = {
   dap = {
     auto_configure = true,
     adapter = 'ruby',
+    configurations = true,
   },
 
   test_discovery = {

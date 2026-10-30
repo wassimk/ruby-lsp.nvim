@@ -54,15 +54,40 @@ function M.setup_adapter()
   end
 
   dap.adapters[adapter_name] = function(callback, dap_config)
-    local bufnr = vim.api.nvim_get_current_buf()
-    local executable = M.executable(bufnr, dap_config)
+    local function start(bufnr, exec_config)
+      callback({
+        type = 'server',
+        host = '127.0.0.1',
+        port = '${port}',
+        executable = M.executable(bufnr, exec_config),
+      })
+    end
 
-    callback({
-      type = 'server',
-      host = '127.0.0.1',
-      port = '${port}',
-      executable = executable,
-    })
+    -- The nearest test configuration names a cursor position instead of a command. Resolve
+    -- it through Ruby LSP, and start no session when there's no test to debug.
+    local target = dap_config.ruby_lsp_target
+    if type(target) == 'table' then
+      M.resolve_nearest(target.bufnr, target.line, function(cmd)
+        if cmd then
+          start(target.bufnr, M.parse_shell_command(cmd))
+        end
+      end)
+      return
+    end
+
+    start(vim.api.nvim_get_current_buf(), dap_config)
+  end
+
+  -- Provide configurations instead of assigning dap.configurations.ruby, so a user who
+  -- assigns that list keeps it and still sees ours. Older nvim-dap has no providers.
+  if cfg.configurations and dap.providers and dap.providers.configs then
+    dap.providers.configs['ruby-lsp.nvim'] = function(bufnr)
+      local filetype = vim.b[bufnr]['dap-srcft'] or vim.bo[bufnr].filetype
+      if filetype ~= 'ruby' then
+        return {}
+      end
+      return M.configurations()
+    end
   end
 
   -- rdbg pauses at startup so nvim-dap can set breakpoints before any code runs (with
@@ -155,6 +180,117 @@ local function launch_dap(shell_cmd)
   })
 end
 
+---Discover the tests in a file once indexing completes. Calls back with nothing after an
+---error notification when there's no client or the request fails.
+---@param uri string
+---@param bufnr integer
+---@param callback fun(client: vim.lsp.Client|nil, items: table[]|nil)
+local function discover_tests(uri, bufnr, callback)
+  local function no_client()
+    vim.notify('ruby-lsp: no ruby_lsp client found', vim.log.levels.ERROR)
+    callback(nil, nil)
+  end
+
+  -- Without a client, indexing never completes, so fail now instead of waiting
+  if not utils.get_client() then
+    no_client()
+    return
+  end
+
+  utils.after_indexing(function()
+    local client = utils.get_client()
+    if not client then
+      no_client()
+      return
+    end
+
+    client:request('rubyLsp/discoverTests', { textDocument = { uri = uri } }, function(err, result)
+      if err or not result then
+        vim.notify('ruby-lsp: failed to discover tests', vim.log.levels.ERROR)
+        callback(nil, nil)
+        return
+      end
+      callback(client, result)
+    end, bufnr)
+  end)
+end
+
+---Resolve the shell command that runs a test item. Calls back with nil after an error
+---notification when the request fails.
+---@param client vim.lsp.Client
+---@param item table
+---@param bufnr integer
+---@param callback fun(cmd: string|nil)
+local function resolve_command(client, item, bufnr, callback)
+  local params = { items = { utils.wrap_test_item(item) } }
+
+  client:request('rubyLsp/resolveTestCommands', params, function(err, result)
+    if err or not result or not result.commands or #result.commands == 0 then
+      vim.notify('ruby-lsp: failed to resolve test command', vim.log.levels.ERROR)
+      callback(nil)
+      return
+    end
+    callback(result.commands[1])
+  end, bufnr)
+end
+
+---Resolve the command that runs the innermost test containing a line of a buffer.
+---Calls back with nil after a notification when there's no test there or a request fails.
+---@param bufnr integer
+---@param line integer 0-based
+---@param callback fun(cmd: string|nil)
+function M.resolve_nearest(bufnr, line, callback)
+  discover_tests(vim.uri_from_bufnr(bufnr), bufnr, function(client, items)
+    if not client or not items then
+      callback(nil)
+      return
+    end
+
+    local item = utils.find_nearest_test(items, line)
+    if not item then
+      vim.notify('ruby-lsp: no test at the cursor', vim.log.levels.INFO)
+      callback(nil)
+      return
+    end
+
+    resolve_command(client, item, bufnr, callback)
+  end)
+end
+
+---Debug configurations for the nearest test and the current file.
+---@return table[]
+function M.configurations()
+  local adapter = config.get().dap.adapter
+
+  local function configuration(name, fields)
+    return vim.tbl_extend('force', { type = adapter, request = 'attach', localfs = true, name = name }, fields)
+  end
+
+  return {
+    configuration('Ruby LSP: debug nearest test', {
+      ruby_lsp_target = function()
+        return { bufnr = vim.api.nvim_get_current_buf(), line = vim.api.nvim_win_get_cursor(0)[1] - 1 }
+      end,
+    }),
+    configuration('Ruby LSP: debug current file', {
+      command = { 'ruby' },
+      script = { '${file}' },
+    }),
+    configuration('Ruby LSP: debug current file with arguments', {
+      command = { 'ruby' },
+      script = { '${file}' },
+      script_args = function()
+        return coroutine.create(function(dap_run_co)
+          vim.ui.input({ prompt = 'Arguments: ' }, function(input)
+            local value = input == nil and require('dap').ABORT or utils.shell_split(input)
+            coroutine.resume(dap_run_co, value)
+          end)
+        end)
+      end,
+    }),
+  }
+end
+
 ---Handle rubyLsp.debugTest command.
 ---Defers until indexing is complete to avoid stale cached results.
 ---@param command lsp.Command
@@ -164,39 +300,29 @@ function M.debug_test(command)
     return
   end
 
-  utils.after_indexing(function()
-    local client = utils.get_client()
-    if not client then
-      vim.notify('ruby-lsp: no ruby_lsp client found', vim.log.levels.ERROR)
+  discover_tests(vim.uri_from_fname(file_path), 0, function(client, items)
+    if not client or not items then
       return
     end
 
-    local uri = vim.uri_from_fname(file_path)
+    if #items == 0 then
+      vim.notify('ruby-lsp: failed to discover tests', vim.log.levels.ERROR)
+      return
+    end
 
-    client:request('rubyLsp/discoverTests', { textDocument = { uri = uri } }, function(err, result)
-      if err or not result or #result == 0 then
-        vim.notify('ruby-lsp: failed to discover tests', vim.log.levels.ERROR)
-        return
-      end
+    local item = utils.find_test_item(items, test_id)
+    if not item then
+      vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
+      return
+    end
 
-      local item = utils.find_test_item(result, test_id)
-      if not item then
-        vim.notify("ruby-lsp: test '" .. test_id .. "' not found", vim.log.levels.ERROR)
-        return
-      end
-
-      local items = { utils.wrap_test_item(item) }
-
-      client:request('rubyLsp/resolveTestCommands', { items = items }, function(err2, result2)
-        if err2 or not result2 or not result2.commands or #result2.commands == 0 then
-          vim.notify('ruby-lsp: failed to resolve test command', vim.log.levels.ERROR)
-          return
-        end
+    resolve_command(client, item, 0, function(cmd)
+      if cmd then
         vim.schedule(function()
-          launch_dap(result2.commands[1])
+          launch_dap(cmd)
         end)
-      end, 0)
-    end, 0)
+      end
+    end)
   end)
 end
 

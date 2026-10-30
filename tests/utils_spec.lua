@@ -97,6 +97,44 @@ describe('utils', function()
     end)
   end)
 
+  describe('find_nearest_test', function()
+    local function range(first, last)
+      return { start = { line = first, character = 0 }, ['end'] = { line = last, character = 3 } }
+    end
+
+    local items = {
+      {
+        id = 'FooTest',
+        range = range(0, 20),
+        children = {
+          { id = 'FooTest#test_bar', range = range(5, 8), children = {} },
+          { id = 'FooTest#test_baz', range = range(12, 15), children = {} },
+        },
+      },
+    }
+
+    it('finds the innermost test containing the line', function()
+      assert.equals('FooTest#test_bar', utils.find_nearest_test(items, 6).id)
+    end)
+
+    it('returns the group between its tests', function()
+      assert.equals('FooTest', utils.find_nearest_test(items, 10).id)
+    end)
+
+    it('returns nil outside every test', function()
+      assert.is_nil(utils.find_nearest_test(items, 25))
+    end)
+
+    it('picks the first of siblings with the same range', function()
+      local siblings = {
+        { id = 'first', range = range(0, 4) },
+        { id = 'second', range = range(0, 4) },
+      }
+
+      assert.equals('first', utils.find_nearest_test(siblings, 2).id)
+    end)
+  end)
+
   describe('wrap_test_item', function()
     it('wraps item with expected fields', function()
       local item = {

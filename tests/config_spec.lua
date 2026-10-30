@@ -34,6 +34,10 @@ describe('config', function()
       assert.is_true(config.get().dap.auto_configure)
     end)
 
+    it('provides debug configurations by default', function()
+      assert.is_true(config.get().dap.configurations)
+    end)
+
     it('uses ruby DAP adapter by default', function()
       assert.equals('ruby', config.get().dap.adapter)
     end)

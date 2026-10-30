@@ -117,6 +117,22 @@ function M.find_test_item(items, target_id)
   return nil
 end
 
+---Find the innermost test item (searching children) whose range contains a line. Inside a
+---group but between its tests, that is the group. Among siblings with the same range, the
+---first wins.
+---@param items table[]
+---@param line integer 0-based
+---@return table|nil
+function M.find_nearest_test(items, line)
+  for _, item in ipairs(items) do
+    local range = item.range
+    if range and range.start.line <= line and line <= range['end'].line then
+      return M.find_nearest_test(item.children or {}, line) or item
+    end
+  end
+  return nil
+end
+
 -- Ruby LSP 0.26 no longer tags test items as `test_group` or `test_case`, but
 -- ruby-lsp-rspec still needs those tags to run a single example or group. Without
 -- them it resolves every RSpec item to the whole file. Add them back until the
