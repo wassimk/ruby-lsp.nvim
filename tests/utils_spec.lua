@@ -217,22 +217,22 @@ describe('utils', function()
       assert.is_true(utils.full_test_discovery_enabled(client))
     end)
 
-    it('returns true when flag is not set', function()
+    it('returns false when flag is not set', function()
       local client = { config = { init_options = { enabledFeatureFlags = {} } } }
 
-      assert.is_true(utils.full_test_discovery_enabled(client))
+      assert.is_false(utils.full_test_discovery_enabled(client))
     end)
 
-    it('returns true when no enabledFeatureFlags', function()
+    it('returns false when no enabledFeatureFlags', function()
       local client = { config = { init_options = {} } }
 
-      assert.is_true(utils.full_test_discovery_enabled(client))
+      assert.is_false(utils.full_test_discovery_enabled(client))
     end)
 
-    it('returns true when no init_options', function()
+    it('returns false when no init_options', function()
       local client = { config = {} }
 
-      assert.is_true(utils.full_test_discovery_enabled(client))
+      assert.is_false(utils.full_test_discovery_enabled(client))
     end)
 
     it('returns false when the flag is explicitly turned off', function()

@@ -3,7 +3,8 @@ local M = {}
 M.MIN_NVIM_VERSION = '0.12'
 M.MIN_RUBY_LSP_VERSION = '0.23.0'
 M.FEATURE_FLAG_MSG = 'ruby-lsp.nvim needs the fullTestDiscovery feature flag, which it turns on by default.\n'
-  .. 'Remove the fullTestDiscovery = false override from your ruby_lsp config.'
+  .. 'Either your ruby_lsp config sets fullTestDiscovery = false, so remove that override,\n'
+  .. 'or ruby_lsp started before ruby-lsp.nvim was loaded, so do not lazy-load the plugin.'
 
 ---@type table<integer, boolean>
 local indexing_complete = {}
@@ -80,12 +81,14 @@ function M.check_rspec_addon(client)
 end
 
 ---Check whether the fullTestDiscovery feature flag is enabled on a client.
+---The plugin's ruby_lsp config always sets it, so an unset flag means that config
+---was not applied to this client.
 ---@param client vim.lsp.Client
 ---@return boolean
 function M.full_test_discovery_enabled(client)
   local init_options = client.config.init_options or {}
   local flags = init_options.enabledFeatureFlags or {}
-  return flags.fullTestDiscovery ~= false
+  return flags.fullTestDiscovery == true
 end
 
 ---Get the first active ruby_lsp client, or nil if none is running.

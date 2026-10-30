@@ -178,13 +178,21 @@ describe('health', function()
       assert.is_true(ok, err)
     end
 
-    it('only warns when it is turned off', function()
-      check_with({})
+    it('reports ok when it is turned on', function()
+      check_with({ enabledFeatureFlags = { fullTestDiscovery = true } })
+      assert.truthy(find('ok', 'fullTestDiscovery'))
       assert.is_nil(find('warn', 'fullTestDiscovery'))
+    end)
 
-      reports = {}
+    it('warns when it is turned off or not set', function()
       check_with({ enabledFeatureFlags = { fullTestDiscovery = false } })
       assert.truthy(find('warn', 'fullTestDiscovery'))
+
+      reports = {}
+      check_with({})
+      local r = find('warn', 'fullTestDiscovery')
+      assert.truthy(r)
+      assert.truthy(r.msg:find('lazy%-load'))
     end)
   end)
 end)

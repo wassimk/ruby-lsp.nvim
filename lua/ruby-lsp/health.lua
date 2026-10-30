@@ -95,7 +95,7 @@ function M.check()
     if utils.full_test_discovery_enabled(clients[1]) then
       vim.health.ok('fullTestDiscovery feature flag is enabled')
     else
-      vim.health.warn('fullTestDiscovery feature flag is turned off', {
+      vim.health.warn('fullTestDiscovery feature flag is not enabled', {
         utils.FEATURE_FLAG_MSG,
       })
     end
