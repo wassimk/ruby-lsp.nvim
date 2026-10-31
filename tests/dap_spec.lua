@@ -173,8 +173,8 @@ describe('dap', function()
         vim.api.nvim_set_current_buf(bufnr)
         local configs = provided(bufnr)
 
-        assert.same({ bufnr = bufnr, file = true }, configs[2].ruby_lsp_target())
-        assert.same({ bufnr = bufnr, file = true }, configs[3].ruby_lsp_target())
+        assert.same({ bufnr = bufnr, file = true }, configs[2].ruby_lsp_target)
+        assert.same({ bufnr = bufnr, file = true }, configs[3].ruby_lsp_target)
       end)
 
       it('targets the cursor line of the current buffer', function()
@@ -183,9 +183,22 @@ describe('dap', function()
         vim.api.nvim_set_current_buf(bufnr)
         vim.api.nvim_win_set_cursor(0, { 3, 0 })
 
-        local target = provided(bufnr)[1].ruby_lsp_target()
+        local target = provided(bufnr)[1].ruby_lsp_target
 
         assert.same({ bufnr = bufnr, line = 2 }, target)
+      end)
+
+      it('keeps the cursor line from when the picker opened', function()
+        local bufnr = buffer('ruby')
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'a', 'b', 'c' })
+        vim.api.nvim_set_current_buf(bufnr)
+        vim.api.nvim_win_set_cursor(0, { 3, 0 })
+
+        local configs = provided(bufnr)
+        vim.api.nvim_set_current_buf(vim.api.nvim_create_buf(false, true))
+
+        assert.same({ bufnr = bufnr, line = 2 }, configs[1].ruby_lsp_target)
+        assert.same({ bufnr = bufnr, file = true }, configs[2].ruby_lsp_target)
       end)
 
       it('provides nothing for other filetypes', function()
@@ -401,10 +414,7 @@ describe('dap', function()
 
         it('notifies and does not start outside a test', function()
           assert.is_nil(start(15))
-          assert.same(
-            { { msg = 'ruby-lsp: no test at the cursor', level = vim.log.levels.INFO } },
-            helpers.notifications
-          )
+          assert.same({ { msg = 'ruby-lsp: no test at line 16', level = vim.log.levels.INFO } }, helpers.notifications)
         end)
 
         it('does not start without a client', function()

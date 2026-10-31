@@ -262,7 +262,7 @@ function M.resolve_nearest(bufnr, line, callback)
 
     local item = utils.find_nearest_test(items, line)
     if not item then
-      vim.notify('ruby-lsp: no test at the cursor', vim.log.levels.INFO)
+      vim.notify('ruby-lsp: no test at line ' .. (line + 1), vim.log.levels.INFO)
       callback(nil)
       return
     end
@@ -337,9 +337,14 @@ function M.configurations(bufnr)
     return vim.tbl_extend('force', { type = adapter, request = 'attach', localfs = true, name = name }, fields)
   end
 
-  local function current_file()
-    return { bufnr = vim.api.nvim_get_current_buf(), file = true }
+  -- Capture the buffer and cursor now, while nvim-dap's picker hasn't opened yet. A target read
+  -- after the picker closes can see another window when focus is slow to come back.
+  local win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_get_buf(win) ~= bufnr then
+    win = vim.fn.bufwinid(bufnr)
   end
+  local line = win ~= -1 and vim.api.nvim_win_get_cursor(win)[1] - 1 or 0
+  local current_file = { bufnr = bufnr, file = true }
 
   local configurations = {
     configuration('Ruby LSP: debug current file', {
@@ -363,9 +368,7 @@ function M.configurations(bufnr)
       configurations,
       1,
       configuration('Ruby LSP: debug nearest test', {
-        ruby_lsp_target = function()
-          return { bufnr = vim.api.nvim_get_current_buf(), line = vim.api.nvim_win_get_cursor(0)[1] - 1 }
-        end,
+        ruby_lsp_target = { bufnr = bufnr, line = line },
       })
     )
   end
