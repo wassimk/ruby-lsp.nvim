@@ -151,11 +151,11 @@ describe('utils', function()
       assert.equals('test_bar', wrapped.label)
       assert.equals('file:///path/to/test.rb', wrapped.uri)
       assert.same(item.range, wrapped.range)
-      assert.same({ 'framework:minitest' }, wrapped.tags)
+      assert.same({ 'framework:minitest', 'test_case' }, wrapped.tags)
       assert.same({}, wrapped.children)
     end)
 
-    -- Workaround for https://github.com/st0012/ruby-lsp-rspec/pull/103
+    -- Workaround for Ruby LSP 0.26 dropping test_group and test_case tags
     it('tags an RSpec example as a test case', function()
       local item = { id = 'spec.rb:5::spec.rb:8', range = {}, tags = { 'framework:rspec' } }
 
@@ -168,10 +168,22 @@ describe('utils', function()
       assert.same({ 'framework:rspec', 'test_group' }, utils.wrap_test_item(item).tags)
     end)
 
-    it('leaves minitest tags unchanged', function()
+    it('tags a minitest class with tests as a test group', function()
       local item = { id = 'FooTest', range = {}, tags = { 'framework:minitest' }, children = { { id = 'child' } } }
 
-      assert.same({ 'framework:minitest' }, utils.wrap_test_item(item).tags)
+      assert.same({ 'framework:minitest', 'test_group' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('tags a Rails test as a test case', function()
+      local item = { id = 'FooTest#test_bar', range = {}, tags = { 'framework:rails' }, children = {} }
+
+      assert.same({ 'framework:rails', 'test_case' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('does not add a kind tag to a file item', function()
+      local item = { id = '/app/test/foo_test.rb', range = {}, tags = { 'framework:rails', 'test_file' } }
+
+      assert.same({ 'framework:rails', 'test_file' }, utils.wrap_test_item(item).tags)
     end)
 
     it('does not add a kind tag when RSpec already provides one', function()

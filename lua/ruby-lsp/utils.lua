@@ -136,19 +136,27 @@ function M.find_nearest_test(items, line)
   return nil
 end
 
--- Ruby LSP 0.26 no longer tags test items as `test_group` or `test_case`, but
--- ruby-lsp-rspec still needs those tags to run a single example or group. Without
--- them it resolves every RSpec item to the whole file. Add them back until the
--- upstream fix is released: https://github.com/st0012/ruby-lsp-rspec/pull/103
+-- Ruby LSP 0.26 no longer tags test items as `test_group` or `test_case`, but every
+-- resolver still needs them. Without them, Ruby LSP builds a minitest class regex that
+-- matches nothing, ruby-lsp-rails runs a class as `file:<class line>` (which runs nothing
+-- on Rails 8.1), and ruby-lsp-rspec resolves every item to the whole file. Add them back
+-- until upstream tags items again: https://github.com/st0012/ruby-lsp-rspec/pull/103
+local KIND_TAGS = { 'test_group', 'test_case', 'test_file', 'test_dir' }
+
 ---@param item table
 ---@param tags string[]
 ---@return string[]
-local function with_rspec_kind_tag(item, tags)
-  if not vim.tbl_contains(tags, 'framework:rspec') then
+local function with_kind_tag(item, tags)
+  local has_framework = vim.iter(tags):any(function(tag)
+    return vim.startswith(tag, 'framework:')
+  end)
+  if not has_framework then
     return tags
   end
-  if vim.tbl_contains(tags, 'test_group') or vim.tbl_contains(tags, 'test_case') then
-    return tags
+  for _, kind in ipairs(KIND_TAGS) do
+    if vim.tbl_contains(tags, kind) then
+      return tags
+    end
   end
 
   local kind = (item.children and #item.children > 0) and 'test_group' or 'test_case'
@@ -164,7 +172,7 @@ function M.wrap_test_item(item)
     label = item.label,
     uri = item.uri,
     range = item.range,
-    tags = with_rspec_kind_tag(item, item.tags or {}),
+    tags = with_kind_tag(item, item.tags or {}),
     children = {},
   }
 end
