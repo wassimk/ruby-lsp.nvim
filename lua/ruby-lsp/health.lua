@@ -1,7 +1,85 @@
 local config = require('ruby-lsp.config')
+local server = require('ruby-lsp.server')
 local utils = require('ruby-lsp.utils')
 
 local M = {}
+
+---Check whether the Gemfile.lock in `root` lists ruby-lsp as a direct dependency.
+---Add-ons such as ruby-lsp-rails resolve ruby-lsp too, so only DEPENDENCIES counts.
+---@param root string
+---@return boolean
+local function bundles_ruby_lsp(root)
+  local path = root .. '/Gemfile.lock'
+  if vim.fn.filereadable(path) == 0 then
+    return false
+  end
+  local in_dependencies = false
+  for _, line in ipairs(vim.fn.readfile(path)) do
+    if line == 'DEPENDENCIES' then
+      in_dependencies = true
+    elseif in_dependencies then
+      if line == '' then
+        break
+      end
+      if line:match('^  ruby%-lsp$') or line:match('^  ruby%-lsp[ !(]') then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+---Find the project root to check. `:checkhealth` runs in a scratch buffer, so use the
+---active ruby_lsp client's root, then the alternate file's project, then the cwd.
+---@return string
+local function project_root()
+  local client = utils.get_client()
+  if client and client.config.root_dir then
+    return client.config.root_dir
+  end
+
+  local alt = vim.fn.bufnr('#')
+  if
+    alt > 0
+    and vim.api.nvim_buf_is_valid(alt)
+    and vim.api.nvim_buf_get_name(alt) ~= ''
+    and vim.bo[alt].buftype == ''
+  then
+    local root = vim.fs.root(alt, { 'Gemfile', '.git' })
+    if root then
+      return root
+    end
+  end
+
+  return vim.fn.getcwd()
+end
+
+---@param root string
+local function check_install(root)
+  local ok, version = server.probe_sync(root, { refresh = true })
+  if ok then
+    vim.health.ok('ruby-lsp ' .. (version or '') .. ' runs from ' .. root)
+  else
+    vim.health.error('ruby-lsp does not run from ' .. root .. ', so the server will not start', {
+      'Install it with: gem install ruby-lsp',
+      'With rbenv, rvm, mise, or asdf, install it for the Ruby version this project uses.',
+    })
+  end
+
+  local auto_start = config.get().lsp.auto_start
+  if type(auto_start) == 'function' then
+    vim.health.info('auto_start: function')
+  else
+    vim.health.info('auto_start: ' .. (auto_start and 'on' or 'off'))
+  end
+
+  if bundles_ruby_lsp(root) then
+    vim.health.warn('ruby-lsp is in ' .. root .. '/Gemfile.lock', {
+      'Bundling ruby-lsp is not supported by ruby-lsp.nvim.',
+      'The global gem is recommended: gem install ruby-lsp',
+    })
+  end
+end
 
 function M.check()
   vim.health.start('ruby-lsp.nvim')
@@ -13,6 +91,8 @@ function M.check()
   else
     vim.health.error('Neovim ' .. nvim_version .. ' is too old (minimum: ' .. utils.MIN_NVIM_VERSION .. ')')
   end
+
+  check_install(project_root())
 
   -- Check for Ruby LSP server in active clients
   local clients = vim.lsp.get_clients({ name = 'ruby_lsp' })
@@ -92,6 +172,12 @@ function M.check()
   local dap_ok, dap = pcall(require, 'dap')
   if dap_ok then
     vim.health.ok('nvim-dap is installed')
+
+    if vim.fn.executable('rdbg') == 1 then
+      vim.health.ok('rdbg is installed')
+    else
+      vim.health.info('rdbg not found (debugging needs the debug gem: gem install debug)')
+    end
 
     local adapter_name = config.get().dap.adapter
     if dap.adapters[adapter_name] then

@@ -20,15 +20,25 @@ This plugin implements all five commands through `vim.lsp.commands`, and adds a 
 | `rubyLsp.openFile` | Opens a file, jumping to the line when one is given |
 | `rubyLsp.runTask` | Runs a task such as a migration in a terminal |
 
+### User commands
+
+Set `user_commands = true` to add these commands to buffers Ruby LSP is attached to:
+
+| Command | What it does |
+|---|---|
+| `:RubyLspShowDependencies [all]` | Lists the project's direct dependencies in the quickfix list, or every gem with `all` |
+| `:RubyLspShowSyntaxTree` | Shows the syntax tree for the buffer in a vertical split. Press `q` to close it. |
+| `:RubyLspDiscoverTests` | Lists the tests Ruby LSP finds in the buffer in the quickfix list |
+
 ## 📋 Requirements
 
 - Neovim >= 0.12
-- [Ruby LSP](https://github.com/Shopify/ruby-lsp) >= 0.23.0
+- [Ruby LSP](https://github.com/Shopify/ruby-lsp) >= 0.23.0, installed with `gem install ruby-lsp`. With a Ruby version manager, install it once for each Ruby version you use.
 
 ### Optional
 
 - [neotest](https://github.com/nvim-neotest/neotest) to run tests through neotest
-- [nvim-dap](https://github.com/mfussenegger/nvim-dap) and the [debug](https://github.com/ruby/debug) gem in your project's bundle, to debug tests
+- [nvim-dap](https://github.com/mfussenegger/nvim-dap) and the [debug](https://github.com/ruby/debug) gem, to debug tests and scripts
 - [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim) to run tests in toggleterm instead of a split
 - [ruby-lsp-rspec](https://github.com/st0012/ruby-lsp-rspec) in your Gemfile for RSpec projects. Minitest works out of the box.
 
@@ -40,28 +50,44 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 {
   "wassimk/ruby-lsp.nvim",
   version = "*",
-  ft = "ruby",
+  lazy = false,
   opts = {},
 }
 ```
 
-## 🖥️ Ruby LSP Server Setup
+Don't lazy-load the plugin. Its `lsp/ruby_lsp.lua` must be on the runtimepath before Ruby LSP starts, and loading it is cheap. When nvim-dap is installed, `setup()` also loads nvim-dap at startup to register the debug adapter.
 
-This plugin doesn't start Ruby LSP for you. Configure and enable the server in your own LSP setup, with the `fullTestDiscovery` feature flag turned on. Code lenses and test discovery depend on it.
+If you're upgrading and already start Ruby LSP yourself, remove your `vim.lsp.enable("ruby_lsp")` call and your `fullTestDiscovery` setting. Or set `lsp.auto_start = false` and keep your `vim.lsp.enable("ruby_lsp")` call, as long as the plugin still isn't lazy-loaded.
+
+## 🖥️ Ruby LSP Server
+
+The plugin configures and starts Ruby LSP for you, in any project with a `Gemfile` or `.git` directory. You don't need nvim-lspconfig or a `ruby_lsp` config of your own. If nvim-lspconfig is installed, its config merges with the plugin's without conflict.
+
+Before starting, the plugin checks that `ruby-lsp --version` runs from the project root. If you set `cmd` to a list such as `{ "bundle", "exec", "ruby-lsp" }`, it only checks that the first entry is executable. When the check fails, the server stays off and nothing is shown. Run `:checkhealth ruby-lsp` to see why.
+
+Set `lsp.auto_start` to choose where the server starts. `true` starts it in every Ruby project, and `false` leaves it to you to call `vim.lsp.enable("ruby_lsp")`. A function decides per project. This one skips projects that use solargraph:
+
+```lua
+require("ruby-lsp").setup({
+  lsp = {
+    auto_start = function(root_dir)
+      return vim.fn.filereadable(root_dir .. "/.solargraph.yml") == 0
+    end,
+  },
+})
+```
+
+To customize the server, use `after/lsp/ruby_lsp.lua` or `vim.lsp.config("ruby_lsp", { ... })`. Your settings merge on top of the plugin's:
 
 ```lua
 vim.lsp.config("ruby_lsp", {
   init_options = {
-    enabledFeatureFlags = { fullTestDiscovery = true },
+    formatter = "standard",
   },
 })
-
-vim.lsp.enable("ruby_lsp")
 ```
 
-With [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) installed, that's all you need: it provides the base `ruby_lsp` config these settings merge into. Its older `require("lspconfig").ruby_lsp.setup()` style is deprecated, and the neotest adapter works best when the server is enabled with `vim.lsp.enable`.
-
-Run `:checkhealth ruby-lsp` to check that the server is running and the feature flag is on.
+If you override `root_dir`, your function replaces the plugin's start checks, including `lsp.auto_start` and the check that `ruby-lsp` runs.
 
 ## 🧪 Neotest
 
@@ -79,22 +105,17 @@ With neotest installed, the **Run** code lens goes through neotest too, so resul
 
 ## 🐞 Debugging
 
-When nvim-dap is installed, the plugin registers a `ruby` debug adapter that starts your tests under rdbg. The **Debug** code lens uses it, and so can your own configurations:
+When nvim-dap is installed, the plugin registers a `ruby` debug adapter that starts your tests under rdbg. The **Debug** code lens uses it, and the plugin adds three configurations:
 
-```lua
-require("dap").configurations.ruby = {
-  {
-    type = "ruby",
-    name = "debug current file",
-    request = "attach",
-    localfs = true,
-    command = { "ruby" },
-    script = { "${file}" },
-  },
-}
-```
+- **Ruby LSP: debug nearest test** debugs the test under the cursor, or the whole test class when the cursor is on its `class` line. It's listed only when Ruby LSP is attached to the buffer
+- **Ruby LSP: debug current file** debugs every test in a test file, with the command Ruby LSP uses (such as `bin/rails test`). Any other file runs with `ruby`
+- **Ruby LSP: debug current file (with arguments)** asks for arguments first and adds them to the end of the command
 
-Sessions stop at your first breakpoint. Set `dap.auto_configure = false` to use your own adapter instead.
+They appear in `dap.continue()` alongside your own `dap.configurations.ruby`. Set `dap.configurations = false` to hide them.
+
+In a project with a `Gemfile`, the adapter runs rdbg with `bundle exec` from the project root, so the `debug` gem must be in your bundle. For a loose script outside a project, it runs rdbg directly, so install the gem globally with `gem install debug`.
+
+Sessions stop at your first breakpoint. Set `dap.auto_configure = false` to use your own adapter instead. The plugin also skips its configurations when another adapter is already registered under the `dap.adapter` name, since they depend on its own adapter.
 
 ## ⚙️ Options
 
@@ -127,6 +148,7 @@ require("ruby-lsp").setup({
   dap = {
     auto_configure = true, -- register the rdbg adapter when nvim-dap is available
     adapter = "ruby",      -- debug adapter type name
+    configurations = true, -- add the Ruby LSP debug configurations to nvim-dap
   },
 
   -- Neotest test discovery
@@ -135,6 +157,16 @@ require("ruby-lsp").setup({
     -- or while waiting for Ruby LSP to start or finish indexing
     progress = true,
   },
+
+  -- Ruby LSP server
+  lsp = {
+    -- start the server in Ruby projects.
+    -- true | false | function(root_dir): boolean
+    auto_start = true,
+  },
+
+  -- Add :RubyLsp* user commands to buffers Ruby LSP is attached to
+  user_commands = false,
 })
 ```
 
@@ -143,6 +175,8 @@ require("ruby-lsp").setup({
 ```
 :checkhealth ruby-lsp
 ```
+
+It reports whether `ruby-lsp` runs from the current project, the `lsp.auto_start` setting, whether the server is running, and the optional tools the plugin can use.
 
 ## 🔧 Development
 
