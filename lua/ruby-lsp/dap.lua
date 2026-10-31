@@ -60,6 +60,7 @@ function M.setup_adapter()
         host = '127.0.0.1',
         port = '${port}',
         executable = M.executable(bufnr, exec_config),
+        enrich_config = M.enrich_config,
       })
     end
 
@@ -98,22 +99,18 @@ function M.setup_adapter()
       return M.configurations(bufnr)
     end
   end
+end
 
-  -- rdbg pauses at startup so nvim-dap can set breakpoints before any code runs (with
-  -- --nonstop, breakpoints are missed). Continue past that pause, so the session stops at
-  -- the first breakpoint instead. The request goes straight to the session because
-  -- nvim-dap only marks it stopped after this listener runs, so dap.continue() is a no-op.
-  local started = setmetatable({}, { __mode = 'k' })
-  dap.listeners.after.event_stopped['ruby-lsp'] = function(session, body)
-    if session.config.type ~= adapter_name or started[session] then
-      return
-    end
-
-    started[session] = true
-    if body.reason == 'pause' then
-      session:request('continue', { threadId = body.threadId })
-    end
-  end
+---Ask rdbg not to pause at startup. With `nonstop` in the attach request, rdbg holds the
+---program until nvim-dap has set the breakpoints, then runs it to the first breakpoint. rdbg's
+---own nonstop flag differs, since it starts the program before breakpoints are set. Pausing at
+---startup instead races with requests from UIs like nvim-dap-ui, and a short script can
+---exit while they're unread, which resets the connection. An explicit `nonstop = false`
+---keeps the pause.
+---@param dap_config table
+---@param on_config fun(config: table)
+function M.enrich_config(dap_config, on_config)
+  on_config(vim.tbl_extend('keep', dap_config, { nonstop = true }))
 end
 
 ---Parse a shell command string into DAP config fields.

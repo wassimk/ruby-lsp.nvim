@@ -11,7 +11,6 @@ describe('dap', function()
       return {
         adapters = {},
         configurations = {},
-        listeners = { after = { event_stopped = {} } },
         providers = { configs = {} },
         ABORT = {},
       }
@@ -27,21 +26,6 @@ describe('dap', function()
       package.loaded['dap'] = nil
       config.setup()
     end)
-
-    ---A fake nvim-dap session that records the continue requests it receives
-    local function session(type)
-      local s = { config = { type = type or 'ruby' }, continued = {} }
-      function s:request(command, args)
-        if command == 'continue' then
-          table.insert(self.continued, args.threadId)
-        end
-      end
-      return s
-    end
-
-    local function stopped(s, reason)
-      fake_dap.listeners.after.event_stopped['ruby-lsp'](s, { reason = reason, threadId = 1 })
-    end
 
     it('launches rdbg without --stop-at-load', function()
       local adapter
@@ -454,36 +438,31 @@ describe('dap', function()
       end)
     end)
 
-    -- rdbg pauses at startup so breakpoints are set before any code runs. Continue past
-    -- that pause so the session stops at the first breakpoint instead.
-    it('continues past the startup pause', function()
-      local s = session()
-      stopped(s, 'pause')
+    describe('enrich_config', function()
+      local function enriched(dap_config)
+        local result
+        dap.enrich_config(dap_config, function(c)
+          result = c
+        end)
+        return result
+      end
 
-      assert.same({ 1 }, s.continued)
-    end)
+      it('is set on the adapter', function()
+        local adapter
+        fake_dap.adapters.ruby(function(a)
+          adapter = a
+        end, { command = { 'ruby' }, script = { 'greet.rb' } })
 
-    it('only continues past the first pause of a session', function()
-      local s = session()
-      stopped(s, 'pause')
-      stopped(s, 'pause')
+        assert.equals(dap.enrich_config, adapter.enrich_config)
+      end)
 
-      assert.same({ 1 }, s.continued)
-    end)
+      it('asks rdbg not to pause at startup', function()
+        assert.same({ name = 'mine', nonstop = true }, enriched({ name = 'mine' }))
+      end)
 
-    it('stays stopped when the first stop is a breakpoint', function()
-      local s = session()
-      stopped(s, 'breakpoint')
-      stopped(s, 'pause')
-
-      assert.same({}, s.continued)
-    end)
-
-    it('ignores sessions for other adapters', function()
-      local s = session('python')
-      stopped(s, 'pause')
-
-      assert.same({}, s.continued)
+      it('keeps an explicit nonstop = false', function()
+        assert.same({ nonstop = false }, enriched({ nonstop = false }))
+      end)
     end)
   end)
 
