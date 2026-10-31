@@ -409,7 +409,12 @@ describe('dap', function()
           helpers.lsp_clients = {}
 
           assert.is_nil(start(3))
-          assert.equals('ruby-lsp: no ruby_lsp client found', helpers.notifications[1].msg)
+          assert.same({
+            {
+              msg = 'ruby-lsp: debugging the nearest test needs Ruby LSP running in a project',
+              level = vim.log.levels.INFO,
+            },
+          }, helpers.notifications)
         end)
 
         it('debugs a code lens test through the same requests', function()

@@ -249,6 +249,14 @@ end
 ---@param line integer 0-based
 ---@param callback fun(cmd: string|nil)
 function M.resolve_nearest(bufnr, line, callback)
+  -- Loose scripts outside a project never start Ruby LSP, so say what's missing instead of
+  -- reporting a missing client as an error
+  if not utils.get_client() then
+    vim.notify('ruby-lsp: debugging the nearest test needs Ruby LSP running in a project', vim.log.levels.INFO)
+    callback(nil)
+    return
+  end
+
   discover_tests(vim.uri_from_bufnr(bufnr), bufnr, function(client, items)
     if not client or not items then
       callback(nil)
