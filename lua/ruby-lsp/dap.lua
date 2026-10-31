@@ -95,7 +95,7 @@ function M.setup_adapter()
       if filetype ~= 'ruby' then
         return {}
       end
-      return M.configurations()
+      return M.configurations(bufnr)
     end
   end
 
@@ -329,9 +329,11 @@ function M.file_items(items)
   return file_items
 end
 
----Debug configurations for the nearest test and the current file.
+---Debug configurations for the nearest test and the current file. The nearest test needs Ruby
+---LSP, so it's only listed for buffers Ruby LSP is attached to.
+---@param bufnr integer
 ---@return table[]
-function M.configurations()
+function M.configurations(bufnr)
   local adapter = config.get().dap.adapter
 
   local function configuration(name, fields)
@@ -342,12 +344,7 @@ function M.configurations()
     return { bufnr = vim.api.nvim_get_current_buf(), file = true }
   end
 
-  return {
-    configuration('Ruby LSP: debug nearest test', {
-      ruby_lsp_target = function()
-        return { bufnr = vim.api.nvim_get_current_buf(), line = vim.api.nvim_win_get_cursor(0)[1] - 1 }
-      end,
-    }),
+  local configurations = {
     configuration('Ruby LSP: debug current file', {
       ruby_lsp_target = current_file,
     }),
@@ -363,6 +360,20 @@ function M.configurations()
       end,
     }),
   }
+
+  if #vim.lsp.get_clients({ name = 'ruby_lsp', bufnr = bufnr }) > 0 then
+    table.insert(
+      configurations,
+      1,
+      configuration('Ruby LSP: debug nearest test', {
+        ruby_lsp_target = function()
+          return { bufnr = vim.api.nvim_get_current_buf(), line = vim.api.nvim_win_get_cursor(0)[1] - 1 }
+        end,
+      })
+    )
+  end
+
+  return configurations
 end
 
 ---Handle rubyLsp.debugTest command.

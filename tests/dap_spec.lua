@@ -133,6 +133,7 @@ describe('dap', function()
       local function buffer(filetype)
         local bufnr = vim.api.nvim_create_buf(false, true)
         vim.bo[bufnr].filetype = filetype
+        helpers.lsp_clients = { helpers.mock_client({ attached_buffers = { [bufnr] = true } }) }
         return bufnr
       end
 
@@ -146,7 +147,12 @@ describe('dap', function()
         dap.setup_adapter()
       end
 
+      before_each(function()
+        helpers.setup_mocks()
+      end)
+
       after_each(function()
+        helpers.teardown_mocks()
         vim.cmd('silent! %bwipeout!')
       end)
 
@@ -164,6 +170,18 @@ describe('dap', function()
           assert.equals('attach', c.request)
           assert.is_true(c.localfs)
         end
+      end)
+
+      it('leaves out the nearest test when Ruby LSP is not attached to the buffer', function()
+        local bufnr = buffer('ruby')
+        helpers.lsp_clients = { helpers.mock_client() }
+
+        assert.same(
+          vim.list_slice(names, 2),
+          vim.tbl_map(function(c)
+            return c.name
+          end, provided(bufnr))
+        )
       end)
 
       it('targets the whole current buffer for both current file configurations', function()

@@ -107,7 +107,7 @@ With neotest installed, the **Run** code lens goes through neotest too, so resul
 
 When nvim-dap is installed, the plugin registers a `ruby` debug adapter that starts your tests under rdbg. The **Debug** code lens uses it, and the plugin adds three configurations:
 
-- **Ruby LSP: debug nearest test** debugs the test under the cursor, or the whole test class when the cursor is on its `class` line
+- **Ruby LSP: debug nearest test** debugs the test under the cursor, or the whole test class when the cursor is on its `class` line. It's listed only when Ruby LSP is attached to the buffer
 - **Ruby LSP: debug current file** debugs every test in a test file, with the command Ruby LSP uses (such as `bin/rails test`). Any other file runs with `ruby`
 - **Ruby LSP: debug current file (with arguments)** asks for arguments first and adds them to the end of the command
 
