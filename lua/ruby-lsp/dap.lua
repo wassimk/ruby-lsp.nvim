@@ -276,7 +276,7 @@ function M.configurations()
       command = { 'ruby' },
       script = { '${file}' },
     }),
-    configuration('Ruby LSP: debug current file (arguments)', {
+    configuration('Ruby LSP: debug current file (with arguments)', {
       command = { 'ruby' },
       script = { '${file}' },
       script_args = function()

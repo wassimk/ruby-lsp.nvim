@@ -109,7 +109,7 @@ When nvim-dap is installed, the plugin registers a `ruby` debug adapter that sta
 
 - **Ruby LSP: debug nearest test** debugs the test under the cursor
 - **Ruby LSP: debug current file** runs the current file with `ruby`
-- **Ruby LSP: debug current file (arguments)** asks for arguments first
+- **Ruby LSP: debug current file (with arguments)** asks for arguments first
 
 They appear in `dap.continue()` alongside your own `dap.configurations.ruby`. Set `dap.configurations = false` to hide them.
 
