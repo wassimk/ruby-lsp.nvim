@@ -166,11 +166,13 @@ describe('dap', function()
         end
       end)
 
-      it('runs the current file with ruby', function()
-        local current_file = provided(buffer('ruby'))[2]
+      it('targets the whole current buffer for both current file configurations', function()
+        local bufnr = buffer('ruby')
+        vim.api.nvim_set_current_buf(bufnr)
+        local configs = provided(bufnr)
 
-        assert.same({ 'ruby' }, current_file.command)
-        assert.same({ '${file}' }, current_file.script)
+        assert.same({ bufnr = bufnr, file = true }, configs[2].ruby_lsp_target())
+        assert.same({ bufnr = bufnr, file = true }, configs[3].ruby_lsp_target())
       end)
 
       it('targets the cursor line of the current buffer', function()
@@ -263,6 +265,7 @@ describe('dap', function()
       describe('nearest test', function()
         local original_root
         local requests
+        local discovered
         local bufnr
 
         local function range(first, last)
@@ -280,31 +283,33 @@ describe('dap', function()
           vim.api.nvim_buf_set_name(bufnr, '/app/test/foo_test.rb')
           local uri = vim.uri_from_bufnr(bufnr)
 
+          discovered = {
+            {
+              id = 'FooTest',
+              label = 'FooTest',
+              uri = uri,
+              range = range(0, 10),
+              tags = { 'framework:minitest' },
+              children = {
+                {
+                  id = 'FooTest#test_bar',
+                  label = 'test_bar',
+                  uri = uri,
+                  range = range(2, 4),
+                  tags = { 'framework:minitest' },
+                  children = {},
+                },
+              },
+            },
+          }
+
           requests = {}
           helpers.lsp_clients = {
             helpers.mock_client({
               request = function(_, method, params, handler)
                 table.insert(requests, { method = method, params = params })
                 if method == 'rubyLsp/discoverTests' then
-                  handler(nil, {
-                    {
-                      id = 'FooTest',
-                      label = 'FooTest',
-                      uri = uri,
-                      range = range(0, 10),
-                      tags = { 'framework:minitest' },
-                      children = {
-                        {
-                          id = 'FooTest#test_bar',
-                          label = 'test_bar',
-                          uri = uri,
-                          range = range(2, 4),
-                          tags = { 'framework:minitest' },
-                          children = {},
-                        },
-                      },
-                    },
-                  })
+                  handler(nil, discovered)
                 elseif method == 'rubyLsp/resolveTestCommands' then
                   handler(nil, {
                     commands = { 'bundle exec ruby -Itest test/foo_test.rb --name "/^FooTest#test_bar\\$/"' },
@@ -321,13 +326,63 @@ describe('dap', function()
           helpers.teardown_mocks()
         end)
 
-        local function start(line)
+        local function start_with(fields)
           local adapter
           fake_dap.adapters.ruby(function(a)
             adapter = a
-          end, { type = 'ruby', request = 'attach', ruby_lsp_target = { bufnr = bufnr, line = line } })
+          end, vim.tbl_extend('force', { type = 'ruby', request = 'attach' }, fields))
           return adapter
         end
+
+        local function start(line)
+          return start_with({ ruby_lsp_target = { bufnr = bufnr, line = line } })
+        end
+
+        local function start_file(script_args)
+          return start_with({ ruby_lsp_target = { bufnr = bufnr, file = true }, script_args = script_args })
+        end
+
+        it('debugs every test in a test file through the resolved command', function()
+          local exe = start_file().executable
+
+          assert.equals('/app', exe.cwd)
+          assert.same({
+            {
+              id = '/app/test/foo_test.rb',
+              label = 'foo_test.rb',
+              uri = vim.uri_from_bufnr(bufnr),
+              range = discovered[1].range,
+              tags = { 'framework:minitest', 'test_file' },
+              children = {},
+            },
+          }, requests[2].params.items)
+          assert.same(
+            { 'ruby', '-Itest', 'test/foo_test.rb', '--name', '/^FooTest#test_bar$/' },
+            vim.list_slice(exe.args, #exe.args - 4)
+          )
+        end)
+
+        it('adds prompted arguments after the resolved test command', function()
+          local exe = start_file({ '--seed', '1' }).executable
+
+          assert.same({ '/^FooTest#test_bar$/', '--seed', '1' }, vim.list_slice(exe.args, #exe.args - 2))
+        end)
+
+        it('runs a file without tests with ruby', function()
+          discovered = {}
+          local exe = start_file({ 'arg' }).executable
+
+          assert.equals(1, #requests)
+          assert.same({ 'ruby', '/app/test/foo_test.rb', 'arg' }, vim.list_slice(exe.args, #exe.args - 2))
+        end)
+
+        it('runs the file with ruby and no notification without a client', function()
+          helpers.lsp_clients = {}
+          local exe = start_file().executable
+
+          assert.same({}, helpers.notifications)
+          assert.same({ 'ruby', '/app/test/foo_test.rb' }, vim.list_slice(exe.args, #exe.args - 1))
+        end)
 
         it('debugs the nearest test through the resolved command', function()
           local exe = start(3).executable

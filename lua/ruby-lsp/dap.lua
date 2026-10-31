@@ -63,9 +63,18 @@ function M.setup_adapter()
       })
     end
 
-    -- The nearest test configuration names a cursor position instead of a command. Resolve
-    -- it through Ruby LSP, and start no session when there's no test to debug.
+    -- The provided configurations name a buffer instead of a command. Resolve it through
+    -- Ruby LSP, and start no session when there's nothing to debug.
     local target = dap_config.ruby_lsp_target
+    if type(target) == 'table' and target.file then
+      M.resolve_file(target.bufnr, function(exec_config)
+        if exec_config then
+          vim.list_extend(exec_config.script_args, dap_config.script_args or {})
+          start(target.bufnr, exec_config)
+        end
+      end)
+      return
+    end
     if type(target) == 'table' then
       M.resolve_nearest(target.bufnr, target.line, function(cmd)
         if cmd then
@@ -215,14 +224,14 @@ local function discover_tests(uri, bufnr, callback)
   end)
 end
 
----Resolve the shell command that runs a test item. Calls back with nil after an error
+---Resolve the shell command that runs test items. Calls back with nil after an error
 ---notification when the request fails.
 ---@param client vim.lsp.Client
----@param item table
+---@param items table[]
 ---@param bufnr integer
 ---@param callback fun(cmd: string|nil)
-local function resolve_command(client, item, bufnr, callback)
-  local params = { items = { utils.wrap_test_item(item) } }
+local function resolve_command(client, items, bufnr, callback)
+  local params = { items = vim.tbl_map(utils.wrap_test_item, items) }
 
   client:request('rubyLsp/resolveTestCommands', params, function(err, result)
     if err or not result or not result.commands or #result.commands == 0 then
@@ -253,8 +262,63 @@ function M.resolve_nearest(bufnr, line, callback)
       return
     end
 
-    resolve_command(client, item, bufnr, callback)
+    resolve_command(client, { item }, bufnr, callback)
   end)
+end
+
+---Resolve the command that debugs a whole file. A file with tests runs them all through the
+---command Ruby LSP resolves, which sets up load paths like -Itest or runs bin/rails test. Any other file, or any file
+---without a client, runs with plain ruby. Calls back with nil after a notification when a
+---request fails.
+---@param bufnr integer
+---@param callback fun(exec_config: {command: string[], script: string[], script_args: string[]}|nil)
+function M.resolve_file(bufnr, callback)
+  local function plain()
+    callback({ command = { 'ruby' }, script = { vim.api.nvim_buf_get_name(bufnr) }, script_args = {} })
+  end
+
+  if not utils.get_client() then
+    plain()
+    return
+  end
+
+  discover_tests(vim.uri_from_bufnr(bufnr), bufnr, function(client, items)
+    if not client or not items then
+      callback(nil)
+    elseif #items == 0 then
+      plain()
+    else
+      resolve_command(client, M.file_items(items), bufnr, function(cmd)
+        callback(cmd and M.parse_shell_command(cmd) or nil)
+      end)
+    end
+  end)
+end
+
+---Build one item per test framework that stands for a whole file, the way VS Code's test
+---explorer asks to run a file. Every resolver runs a `test_file` item without children as
+---the whole file.
+---@param items table[] top-level items discovered in one file
+---@return table[]
+function M.file_items(items)
+  local file_items = {}
+  local seen = {}
+  for _, item in ipairs(items) do
+    for _, tag in ipairs(item.tags or {}) do
+      if vim.startswith(tag, 'framework:') and not seen[tag] then
+        seen[tag] = true
+        table.insert(file_items, {
+          id = vim.uri_to_fname(item.uri),
+          label = vim.fs.basename(vim.uri_to_fname(item.uri)),
+          uri = item.uri,
+          range = item.range,
+          tags = { tag, 'test_file' },
+          children = {},
+        })
+      end
+    end
+  end
+  return file_items
 end
 
 ---Debug configurations for the nearest test and the current file.
@@ -266,6 +330,10 @@ function M.configurations()
     return vim.tbl_extend('force', { type = adapter, request = 'attach', localfs = true, name = name }, fields)
   end
 
+  local function current_file()
+    return { bufnr = vim.api.nvim_get_current_buf(), file = true }
+  end
+
   return {
     configuration('Ruby LSP: debug nearest test', {
       ruby_lsp_target = function()
@@ -273,12 +341,10 @@ function M.configurations()
       end,
     }),
     configuration('Ruby LSP: debug current file', {
-      command = { 'ruby' },
-      script = { '${file}' },
+      ruby_lsp_target = current_file,
     }),
     configuration('Ruby LSP: debug current file (with arguments)', {
-      command = { 'ruby' },
-      script = { '${file}' },
+      ruby_lsp_target = current_file,
       script_args = function()
         return coroutine.create(function(dap_run_co)
           vim.ui.input({ prompt = 'Arguments: ' }, function(input)
@@ -316,7 +382,7 @@ function M.debug_test(command)
       return
     end
 
-    resolve_command(client, item, 0, function(cmd)
+    resolve_command(client, { item }, 0, function(cmd)
       if cmd then
         vim.schedule(function()
           launch_dap(cmd)
