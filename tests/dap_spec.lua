@@ -127,7 +127,7 @@ describe('dap', function()
       local names = {
         'Ruby LSP: debug nearest test',
         'Ruby LSP: debug current file',
-        'Ruby LSP: debug current file with arguments',
+        'Ruby LSP: debug current file (arguments)',
       }
 
       local function buffer(filetype)
