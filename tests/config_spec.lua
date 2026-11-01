@@ -34,12 +34,24 @@ describe('config', function()
       assert.is_true(config.get().dap.auto_configure)
     end)
 
+    it('provides debug configurations by default', function()
+      assert.is_true(config.get().dap.configurations)
+    end)
+
     it('uses ruby DAP adapter by default', function()
       assert.equals('ruby', config.get().dap.adapter)
     end)
 
     it('enables test discovery progress by default', function()
       assert.is_true(config.get().test_discovery.progress)
+    end)
+
+    it('auto-starts the server by default', function()
+      assert.is_true(config.get().lsp.auto_start)
+    end)
+
+    it('leaves user commands off by default', function()
+      assert.is_false(config.get().user_commands)
     end)
   end)
 

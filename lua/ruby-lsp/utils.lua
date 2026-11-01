@@ -2,9 +2,9 @@ local M = {}
 
 M.MIN_NVIM_VERSION = '0.12'
 M.MIN_RUBY_LSP_VERSION = '0.23.0'
-M.FEATURE_FLAG_MSG = 'ruby-lsp.nvim requires the fullTestDiscovery feature flag.\n'
-  .. 'Add to your ruby_lsp LSP config:\n'
-  .. '  init_options = { enabledFeatureFlags = { fullTestDiscovery = true } }'
+M.FEATURE_FLAG_MSG = 'ruby-lsp.nvim needs the fullTestDiscovery feature flag, which it turns on by default.\n'
+  .. 'Either your ruby_lsp config sets fullTestDiscovery = false, so remove that override,\n'
+  .. 'or ruby_lsp started before ruby-lsp.nvim was loaded, so do not lazy-load the plugin.'
 
 ---@type table<integer, boolean>
 local indexing_complete = {}
@@ -81,6 +81,8 @@ function M.check_rspec_addon(client)
 end
 
 ---Check whether the fullTestDiscovery feature flag is enabled on a client.
+---The plugin's ruby_lsp config always sets it, so an unset flag means that config
+---was not applied to this client.
 ---@param client vim.lsp.Client
 ---@return boolean
 function M.full_test_discovery_enabled(client)
@@ -118,19 +120,43 @@ function M.find_test_item(items, target_id)
   return nil
 end
 
--- Ruby LSP 0.26 no longer tags test items as `test_group` or `test_case`, but
--- ruby-lsp-rspec still needs those tags to run a single example or group. Without
--- them it resolves every RSpec item to the whole file. Add them back until the
--- upstream fix is released: https://github.com/st0012/ruby-lsp-rspec/pull/103
+---Find the innermost test item (searching children) whose range contains a line. Inside a
+---group but between its tests, that is the group. Among siblings with the same range, the
+---first wins.
+---@param items table[]
+---@param line integer 0-based
+---@return table|nil
+function M.find_nearest_test(items, line)
+  for _, item in ipairs(items) do
+    local range = item.range
+    if range and range.start.line <= line and line <= range['end'].line then
+      return M.find_nearest_test(item.children or {}, line) or item
+    end
+  end
+  return nil
+end
+
+-- Ruby LSP 0.26 no longer tags test items as `test_group` or `test_case`, but every
+-- resolver still needs them. Without them, Ruby LSP builds a minitest class regex that
+-- matches nothing, ruby-lsp-rails runs a class as `file:<class line>` (which runs nothing
+-- on Rails 8.1), and ruby-lsp-rspec resolves every item to the whole file. Add them back
+-- until upstream tags items again: https://github.com/st0012/ruby-lsp-rspec/pull/103
+local KIND_TAGS = { 'test_group', 'test_case', 'test_file', 'test_dir' }
+
 ---@param item table
 ---@param tags string[]
 ---@return string[]
-local function with_rspec_kind_tag(item, tags)
-  if not vim.tbl_contains(tags, 'framework:rspec') then
+local function with_kind_tag(item, tags)
+  local has_framework = vim.iter(tags):any(function(tag)
+    return vim.startswith(tag, 'framework:')
+  end)
+  if not has_framework then
     return tags
   end
-  if vim.tbl_contains(tags, 'test_group') or vim.tbl_contains(tags, 'test_case') then
-    return tags
+  for _, kind in ipairs(KIND_TAGS) do
+    if vim.tbl_contains(tags, kind) then
+      return tags
+    end
   end
 
   local kind = (item.children and #item.children > 0) and 'test_group' or 'test_case'
@@ -146,7 +172,7 @@ function M.wrap_test_item(item)
     label = item.label,
     uri = item.uri,
     range = item.range,
-    tags = with_rspec_kind_tag(item, item.tags or {}),
+    tags = with_kind_tag(item, item.tags or {}),
     children = {},
   }
 end

@@ -20,6 +20,11 @@ function M.setup_mocks()
   end
 
   vim.lsp.get_clients = function(opts)
+    if opts and opts.bufnr then
+      return vim.tbl_filter(function(client)
+        return client.attached_buffers[opts.bufnr] == true
+      end, M.lsp_clients)
+    end
     return M.lsp_clients
   end
 

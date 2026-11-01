@@ -20,11 +20,18 @@ local defaults = {
   dap = {
     auto_configure = true,
     adapter = 'ruby',
+    configurations = true,
   },
 
   test_discovery = {
     progress = true,
   },
+
+  lsp = {
+    auto_start = true,
+  },
+
+  user_commands = false,
 }
 
 ---@type table

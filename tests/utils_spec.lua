@@ -97,6 +97,44 @@ describe('utils', function()
     end)
   end)
 
+  describe('find_nearest_test', function()
+    local function range(first, last)
+      return { start = { line = first, character = 0 }, ['end'] = { line = last, character = 3 } }
+    end
+
+    local items = {
+      {
+        id = 'FooTest',
+        range = range(0, 20),
+        children = {
+          { id = 'FooTest#test_bar', range = range(5, 8), children = {} },
+          { id = 'FooTest#test_baz', range = range(12, 15), children = {} },
+        },
+      },
+    }
+
+    it('finds the innermost test containing the line', function()
+      assert.equals('FooTest#test_bar', utils.find_nearest_test(items, 6).id)
+    end)
+
+    it('returns the group between its tests', function()
+      assert.equals('FooTest', utils.find_nearest_test(items, 10).id)
+    end)
+
+    it('returns nil outside every test', function()
+      assert.is_nil(utils.find_nearest_test(items, 25))
+    end)
+
+    it('picks the first of siblings with the same range', function()
+      local siblings = {
+        { id = 'first', range = range(0, 4) },
+        { id = 'second', range = range(0, 4) },
+      }
+
+      assert.equals('first', utils.find_nearest_test(siblings, 2).id)
+    end)
+  end)
+
   describe('wrap_test_item', function()
     it('wraps item with expected fields', function()
       local item = {
@@ -113,11 +151,11 @@ describe('utils', function()
       assert.equals('test_bar', wrapped.label)
       assert.equals('file:///path/to/test.rb', wrapped.uri)
       assert.same(item.range, wrapped.range)
-      assert.same({ 'framework:minitest' }, wrapped.tags)
+      assert.same({ 'framework:minitest', 'test_case' }, wrapped.tags)
       assert.same({}, wrapped.children)
     end)
 
-    -- Workaround for https://github.com/st0012/ruby-lsp-rspec/pull/103
+    -- Workaround for Ruby LSP 0.26 dropping test_group and test_case tags
     it('tags an RSpec example as a test case', function()
       local item = { id = 'spec.rb:5::spec.rb:8', range = {}, tags = { 'framework:rspec' } }
 
@@ -130,10 +168,22 @@ describe('utils', function()
       assert.same({ 'framework:rspec', 'test_group' }, utils.wrap_test_item(item).tags)
     end)
 
-    it('leaves minitest tags unchanged', function()
+    it('tags a minitest class with tests as a test group', function()
       local item = { id = 'FooTest', range = {}, tags = { 'framework:minitest' }, children = { { id = 'child' } } }
 
-      assert.same({ 'framework:minitest' }, utils.wrap_test_item(item).tags)
+      assert.same({ 'framework:minitest', 'test_group' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('tags a Rails test as a test case', function()
+      local item = { id = 'FooTest#test_bar', range = {}, tags = { 'framework:rails' }, children = {} }
+
+      assert.same({ 'framework:rails', 'test_case' }, utils.wrap_test_item(item).tags)
+    end)
+
+    it('does not add a kind tag to a file item', function()
+      local item = { id = '/app/test/foo_test.rb', range = {}, tags = { 'framework:rails', 'test_file' } }
+
+      assert.same({ 'framework:rails', 'test_file' }, utils.wrap_test_item(item).tags)
     end)
 
     it('does not add a kind tag when RSpec already provides one', function()
@@ -196,6 +246,12 @@ describe('utils', function()
 
       assert.is_false(utils.full_test_discovery_enabled(client))
     end)
+
+    it('returns false when the flag is explicitly turned off', function()
+      local client = { config = { init_options = { enabledFeatureFlags = { fullTestDiscovery = false } } } }
+
+      assert.is_false(utils.full_test_discovery_enabled(client))
+    end)
   end)
 
   describe('validate_test_args', function()
@@ -223,9 +279,13 @@ describe('utils', function()
       assert.equals(vim.log.levels.ERROR, helpers.notifications[1].level)
     end)
 
-    it('returns nil when feature flag is not enabled', function()
+    it('returns nil when feature flag is turned off', function()
       helpers.lsp_clients = {
-        { id = 1, name = 'ruby_lsp', config = { init_options = { enabledFeatureFlags = {} } } },
+        {
+          id = 1,
+          name = 'ruby_lsp',
+          config = { init_options = { enabledFeatureFlags = { fullTestDiscovery = false } } },
+        },
       }
 
       local file_path, test_id = utils.validate_test_args({
