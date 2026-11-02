@@ -40,6 +40,9 @@ function M.setup(opts)
         return
       end
       -- per buffer, so it runs before the per-client guard below
+      if config.get().codelens then
+        vim.lsp.codelens.enable(true, { bufnr = ev.buf, client_id = client.id })
+      end
       if config.get().user_commands then
         require('ruby-lsp.user_commands').attach(client, ev.buf)
       end

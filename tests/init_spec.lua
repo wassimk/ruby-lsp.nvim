@@ -128,4 +128,38 @@ describe('setup', function()
     vim.lsp.get_client_by_id = original_get
     vim.api.nvim_buf_delete(buf, { force = true })
   end)
+
+  it('enables code lenses for the ruby_lsp client on attach unless turned off', function()
+    local buf = vim.api.nvim_create_buf(true, false)
+    local original_get = vim.lsp.get_client_by_id
+    local original_enable = vim.lsp.codelens.enable
+    local client = { id = 10, name = 'ruby_lsp', handlers = {}, request = function() end }
+    local other = { id = 11, name = 'lua_ls', handlers = {}, request = function() end }
+    vim.lsp.get_client_by_id = function(id)
+      return id == 10 and client or other
+    end
+    local calls = {}
+    vim.lsp.codelens.enable = function(enable, filter)
+      table.insert(calls, { enable, filter })
+    end
+
+    local function attach(id)
+      vim.api.nvim_exec_autocmds('LspAttach', { group = 'RubyLsp', buffer = buf, data = { client_id = id } })
+    end
+
+    ruby_lsp.setup({ dap = { auto_configure = false } })
+    attach(11)
+    assert.same({}, calls)
+    attach(10)
+    assert.same({ { true, { bufnr = buf, client_id = 10 } } }, calls)
+
+    calls = {}
+    ruby_lsp.setup({ dap = { auto_configure = false }, codelens = false })
+    attach(10)
+    assert.same({}, calls)
+
+    vim.lsp.codelens.enable = original_enable
+    vim.lsp.get_client_by_id = original_get
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
 end)
