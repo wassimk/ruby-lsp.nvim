@@ -31,6 +31,8 @@ local defaults = {
     auto_start = true,
   },
 
+  codelens = true,
+
   user_commands = false,
 }
 

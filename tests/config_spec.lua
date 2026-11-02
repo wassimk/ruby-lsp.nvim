@@ -53,6 +53,10 @@ describe('config', function()
     it('leaves user commands off by default', function()
       assert.is_false(config.get().user_commands)
     end)
+
+    it('enables code lenses by default', function()
+      assert.is_true(config.get().codelens)
+    end)
   end)
 
   describe('setup', function()

@@ -1,5 +1,5 @@
 *ruby-lsp.nvim.txt*
-                              For NVIM v0.12.0    Last change: 2026 October 31
+                             For NVIM v0.12.0    Last change: 2026 November 01
 
 ==============================================================================
 Table of Contents                            *ruby-lsp.nvim-table-of-contents*
@@ -8,7 +8,8 @@ Table of Contents                            *ruby-lsp.nvim-table-of-contents*
   - 💡 Why                            |ruby-lsp.nvim-ruby-lsp.nvim-💡-why|
   - 📝 Commands                  |ruby-lsp.nvim-ruby-lsp.nvim-📝-commands|
   - 📋 Requirements          |ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements|
-  - 🛠️ Installation    |ruby-lsp.nvim-ruby-lsp.nvim-���-️-installation|
+  - 🛠️ Installation    |ruby-lsp.nvim-ruby-lsp.nvim-🛠️-installation|
+  - 🔍 Code Lenses            |ruby-lsp.nvim-ruby-lsp.nvim-🔍-code-lenses|
   - 🖥️ Ruby LSP Server|ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server|
   - 🧪 Neotest                    |ruby-lsp.nvim-ruby-lsp.nvim-🧪-neotest|
   - 🐞 Debugging                |ruby-lsp.nvim-ruby-lsp.nvim-🐞-debugging|
@@ -28,7 +29,7 @@ this plugin they actually do something: run through neotest
 with nvim-dap <https://github.com/mfussenegger/nvim-dap>.
 
 
-П�� WHY                                *ruby-lsp.nvim-ruby-lsp.nvim-💡-why*
+💡 WHY                                *ruby-lsp.nvim-ruby-lsp.nvim-💡-why*
 
 Ruby LSP’s code lenses call client-side commands like `rubyLsp.runTest` and
 `rubyLsp.debugTest`. VS Code’s Ruby LSP extension implements them, but Neovim
@@ -40,7 +41,7 @@ neotest adapter and an rdbg debug adapter that use Ruby LSP to find and run
 your tests.
 
 
-П�� COMMANDS                      *ruby-lsp.nvim-ruby-lsp.nvim-📝-commands*
+📝 COMMANDS                      *ruby-lsp.nvim-ruby-lsp.nvim-📝-commands*
 
   -----------------------------------------------------------------------
   Command                             What it does
@@ -81,7 +82,7 @@ attached to:
                                       the buffer in the quickfix list
   -----------------------------------------------------------------------
 
-П�� REQUIREMENTS              *ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements*
+📋 REQUIREMENTS              *ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements*
 
 - Neovim >= 0.12
 - Ruby LSP <https://github.com/Shopify/ruby-lsp> >= 0.23.0, installed with `gem install ruby-lsp`. With a Ruby version manager, install it once for each Ruby version you use.
@@ -95,7 +96,7 @@ OPTIONAL ~
 - ruby-lsp-rspec <https://github.com/st0012/ruby-lsp-rspec> in your Gemfile for RSpec projects. Minitest works out of the box.
 
 
-П��ϸ� INSTALLATION        *ruby-lsp.nvim-ruby-lsp.nvim-���-️-installation*
+🛠️ INSTALLATION        *ruby-lsp.nvim-ruby-lsp.nvim-🛠️-installation*
 
 With lazy.nvim <https://github.com/folke/lazy.nvim>:
 
@@ -118,7 +119,23 @@ If you’re upgrading and already start Ruby LSP yourself, remove your
 long as the plugin still isn’t lazy-loaded.
 
 
-П��ϸ� RUBY LSP SERVER  *ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server*
+🔍 CODE LENSES                *ruby-lsp.nvim-ruby-lsp.nvim-🔍-code-lenses*
+
+The plugin turns on code lenses in buffers Ruby LSP is attached to, so **Run**,
+**Run In Terminal**, and **Debug** show above your tests. Run the lens on the
+cursor line with `grx`, Neovim’s default mapping for
+`vim.lsp.codelens.run()`. To use a different key, map it yourself:
+
+>lua
+    vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, { desc = "run code lens" })
+<
+
+Set `codelens = false` to leave code lenses to your own config. With it on, the
+plugin enables code lenses for every server attached to a Ruby buffer, which
+overrides a global `vim.lsp.codelens.enable(false)` there.
+
+
+🖥️ RUBY LSP SERVER  *ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server*
 
 The plugin configures and starts Ruby LSP for you, in any project with a
 `Gemfile` or `.git` directory. You don’t need nvim-lspconfig or a `ruby_lsp`
@@ -131,24 +148,52 @@ project root. If you set `cmd` to a list such as `{ "bundle", "exec",
 check fails, the server stays off and nothing is shown. Run `:checkhealth
 ruby-lsp` to see why.
 
-Set `lsp.auto_start` to choose where the server starts. `true` starts it in
-every Ruby project, and `false` leaves it to you to call
-`vim.lsp.enable("ruby_lsp")`. A function decides per project. This one skips
-projects that use solargraph:
+
+STARTING THE RUBY LSP SERVER YOURSELF ~
+
+By default the plugin starts the Ruby LSP server in every Ruby project. To
+start the server yourself instead, set `lsp.auto_start = false` and call
+`vim.lsp.enable("ruby_lsp")` when you want it:
+
+>lua
+    require("ruby-lsp").setup({
+      lsp = {
+        auto_start = false,
+      },
+    })
+
+    vim.lsp.enable("ruby_lsp")
+<
+
+
+CHOOSING WHICH PROJECTS START THE RUBY LSP SERVER (OPTIONAL) ~
+
+`lsp.auto_start` also takes a function. It receives the project root and
+returns whether to start the Ruby LSP server there. For example, if some of
+your projects bundle solargraph and you want solargraph to handle those, skip
+Ruby LSP when `Gemfile.lock` lists it:
 
 >lua
     require("ruby-lsp").setup({
       lsp = {
         auto_start = function(root_dir)
-          return vim.fn.filereadable(root_dir .. "/.solargraph.yml") == 0
+          local lockfile = root_dir .. "/Gemfile.lock"
+          if vim.fn.filereadable(lockfile) == 0 then
+            return true
+          end
+          return not vim.iter(vim.fn.readfile(lockfile)):any(function(line)
+            return line:match("^%s+solargraph%f[^%w_-]") ~= nil
+          end)
         end,
       },
     })
 <
 
-To customize the server, use `after/lsp/ruby_lsp.lua` or
-`vim.lsp.config("ruby_lsp", { ... })`. Your settings merge on top of the
-plugin’s:
+
+CUSTOMIZING THE RUBY LSP SERVER ~
+
+Use `after/lsp/ruby_lsp.lua` or `vim.lsp.config("ruby_lsp", { ... })`. Your
+settings merge on top of the plugin’s:
 
 >lua
     vim.lsp.config("ruby_lsp", {
@@ -162,7 +207,7 @@ If you override `root_dir`, your function replaces the plugin’s start checks,
 including `lsp.auto_start` and the check that `ruby-lsp` runs.
 
 
-П�� NEOTEST                        *ruby-lsp.nvim-ruby-lsp.nvim-🧪-neotest*
+🧪 NEOTEST                        *ruby-lsp.nvim-ruby-lsp.nvim-🧪-neotest*
 
 The neotest adapter finds tests with Ruby LSP and runs the commands Ruby LSP
 resolves for them, so it works the same for Minitest and RSpec, in Rails apps
@@ -181,7 +226,7 @@ results show up in neotest’s signs, summary, and output. **Run In Terminal**
 always uses a terminal.
 
 
-П�� DEBUGGING                    *ruby-lsp.nvim-ruby-lsp.nvim-🐞-debugging*
+🐞 DEBUGGING                    *ruby-lsp.nvim-ruby-lsp.nvim-🐞-debugging*
 
 When nvim-dap is installed, the plugin registers a `ruby` debug adapter that
 starts your tests under rdbg. The **Debug** code lens uses it, and the plugin
@@ -205,7 +250,7 @@ adapter is already registered under the `dap.adapter` name, since they depend
 on its own adapter.
 
 
-�ϸ� OPTIONS                    *ruby-lsp.nvim-ruby-lsp.nvim-⚙️-options*
+⚙️ OPTIONS                    *ruby-lsp.nvim-ruby-lsp.nvim-⚙️-options*
 
 These are the defaults. You only need to pass the ones you want to change.
 
@@ -253,13 +298,16 @@ These are the defaults. You only need to pass the ones you want to change.
         auto_start = true,
       },
 
+      -- Show code lenses in buffers Ruby LSP is attached to
+      codelens = true,
+
       -- Add :RubyLsp* user commands to buffers Ruby LSP is attached to
       user_commands = false,
     })
 <
 
 
-П�� HEALTH CHECK              *ruby-lsp.nvim-ruby-lsp.nvim-🩺-health-check*
+🩺 HEALTH CHECK              *ruby-lsp.nvim-ruby-lsp.nvim-🩺-health-check*
 
 >
     :checkhealth ruby-lsp
@@ -270,7 +318,7 @@ It reports whether `ruby-lsp` runs from the current project, the
 the plugin can use.
 
 
-П�� DEVELOPMENT                *ruby-lsp.nvim-ruby-lsp.nvim-🔧-development*
+🔧 DEVELOPMENT                *ruby-lsp.nvim-ruby-lsp.nvim-🔧-development*
 
 One-time setup to enable the local git hooks:
 
@@ -289,7 +337,7 @@ requires pandoc <https://pandoc.org/installing.html>.
 <
 
 
-П�� ACKNOWLEDGEMENTS      *ruby-lsp.nvim-ruby-lsp.nvim-🙏-acknowledgements*
+🙏 ACKNOWLEDGEMENTS      *ruby-lsp.nvim-ruby-lsp.nvim-🙏-acknowledgements*
 
 Thank you to the Ruby LSP <https://github.com/Shopify/ruby-lsp> team for such a
 great tool. This isn’t an official Ruby LSP project, just my work to make

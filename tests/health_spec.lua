@@ -162,6 +162,16 @@ describe('health', function()
       assert.truthy(find('info', 'auto_start: function'))
     end)
 
+    it('reports the codelens setting', function()
+      health.check()
+      assert.truthy(find('info', 'codelens: on'))
+
+      reports = {}
+      config.setup({ codelens = false })
+      health.check()
+      assert.truthy(find('info', 'codelens: off'))
+    end)
+
     it('places the checks after the Neovim version check', function()
       health.check()
 

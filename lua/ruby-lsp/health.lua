@@ -72,6 +72,7 @@ local function check_install(root)
   else
     vim.health.info('auto_start: ' .. (auto_start and 'on' or 'off'))
   end
+  vim.health.info('codelens: ' .. (config.get().codelens and 'on' or 'off'))
 
   if bundles_ruby_lsp(root) then
     vim.health.warn('ruby-lsp is in ' .. root .. '/Gemfile.lock', {

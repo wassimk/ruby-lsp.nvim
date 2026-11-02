@@ -59,25 +59,59 @@ Don't lazy-load the plugin. Its `lsp/ruby_lsp.lua` must be on the runtimepath be
 
 If you're upgrading and already start Ruby LSP yourself, remove your `vim.lsp.enable("ruby_lsp")` call and your `fullTestDiscovery` setting. Or set `lsp.auto_start = false` and keep your `vim.lsp.enable("ruby_lsp")` call, as long as the plugin still isn't lazy-loaded.
 
+## 🔍 Code Lenses
+
+The plugin turns on code lenses in buffers Ruby LSP is attached to, so **Run**, **Run In Terminal**, and **Debug** show above your tests. Run the lens on the cursor line with `grx`, Neovim's default mapping for `vim.lsp.codelens.run()`. To use a different key, map it yourself:
+
+```lua
+vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, { desc = "run code lens" })
+```
+
+Set `codelens = false` to leave code lenses to your own config. With it on, the plugin enables code lenses for every server attached to a Ruby buffer, which overrides a global `vim.lsp.codelens.enable(false)` there.
+
 ## 🖥️ Ruby LSP Server
 
 The plugin configures and starts Ruby LSP for you, in any project with a `Gemfile` or `.git` directory. You don't need nvim-lspconfig or a `ruby_lsp` config of your own. If nvim-lspconfig is installed, its config merges with the plugin's without conflict.
 
 Before starting, the plugin checks that `ruby-lsp --version` runs from the project root. If you set `cmd` to a list such as `{ "bundle", "exec", "ruby-lsp" }`, it only checks that the first entry is executable. When the check fails, the server stays off and nothing is shown. Run `:checkhealth ruby-lsp` to see why.
 
-Set `lsp.auto_start` to choose where the server starts. `true` starts it in every Ruby project, and `false` leaves it to you to call `vim.lsp.enable("ruby_lsp")`. A function decides per project. This one skips projects that use solargraph:
+### Starting the Ruby LSP server yourself
+
+By default the plugin starts the Ruby LSP server in every Ruby project. To start the server yourself instead, set `lsp.auto_start = false` and call `vim.lsp.enable("ruby_lsp")` when you want it:
+
+```lua
+require("ruby-lsp").setup({
+  lsp = {
+    auto_start = false,
+  },
+})
+
+vim.lsp.enable("ruby_lsp")
+```
+
+### Choosing which projects start the Ruby LSP server (optional)
+
+`lsp.auto_start` also takes a function. It receives the project root and returns whether to start the Ruby LSP server there. For example, if some of your projects bundle solargraph and you want solargraph to handle those, skip Ruby LSP when `Gemfile.lock` lists it:
 
 ```lua
 require("ruby-lsp").setup({
   lsp = {
     auto_start = function(root_dir)
-      return vim.fn.filereadable(root_dir .. "/.solargraph.yml") == 0
+      local lockfile = root_dir .. "/Gemfile.lock"
+      if vim.fn.filereadable(lockfile) == 0 then
+        return true
+      end
+      return not vim.iter(vim.fn.readfile(lockfile)):any(function(line)
+        return line:match("^%s+solargraph%f[^%w_-]") ~= nil
+      end)
     end,
   },
 })
 ```
 
-To customize the server, use `after/lsp/ruby_lsp.lua` or `vim.lsp.config("ruby_lsp", { ... })`. Your settings merge on top of the plugin's:
+### Customizing the Ruby LSP server
+
+Use `after/lsp/ruby_lsp.lua` or `vim.lsp.config("ruby_lsp", { ... })`. Your settings merge on top of the plugin's:
 
 ```lua
 vim.lsp.config("ruby_lsp", {
@@ -164,6 +198,9 @@ require("ruby-lsp").setup({
     -- true | false | function(root_dir): boolean
     auto_start = true,
   },
+
+  -- Show code lenses in buffers Ruby LSP is attached to
+  codelens = true,
 
   -- Add :RubyLsp* user commands to buffers Ruby LSP is attached to
   user_commands = false,
