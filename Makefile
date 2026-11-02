@@ -23,7 +23,8 @@ lint:
 	stylua --check lsp/ lua/ tests/
 
 docs: panvimdoc
-	$(PANVIMDOC_DIR)/panvimdoc.sh \
+	# the C locale keeps panvimdoc from mangling emoji when it uppercases headings
+	LC_ALL=C $(PANVIMDOC_DIR)/panvimdoc.sh \
 		--project-name ruby-lsp.nvim \
 		--input-file README.md \
 		--vim-version "NVIM v0.12.0" \
