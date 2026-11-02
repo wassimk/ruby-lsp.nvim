@@ -1,5 +1,5 @@
 *ruby-lsp.nvim.txt*
-                              For NVIM v0.12.0    Last change: 2026 October 31
+                             For NVIM v0.12.0    Last change: 2026 November 01
 
 ==============================================================================
 Table of Contents                            *ruby-lsp.nvim-table-of-contents*
@@ -9,6 +9,7 @@ Table of Contents                            *ruby-lsp.nvim-table-of-contents*
   - 📝 Commands                  |ruby-lsp.nvim-ruby-lsp.nvim-📝-commands|
   - 📋 Requirements          |ruby-lsp.nvim-ruby-lsp.nvim-📋-requirements|
   - 🛠️ Installation    |ruby-lsp.nvim-ruby-lsp.nvim-���-️-installation|
+  - 🔍 Code Lenses            |ruby-lsp.nvim-ruby-lsp.nvim-🔍-code-lenses|
   - 🖥️ Ruby LSP Server|ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server|
   - 🧪 Neotest                    |ruby-lsp.nvim-ruby-lsp.nvim-🧪-neotest|
   - 🐞 Debugging                |ruby-lsp.nvim-ruby-lsp.nvim-🐞-debugging|
@@ -118,6 +119,20 @@ If you’re upgrading and already start Ruby LSP yourself, remove your
 long as the plugin still isn’t lazy-loaded.
 
 
+П�� CODE LENSES                *ruby-lsp.nvim-ruby-lsp.nvim-🔍-code-lenses*
+
+The plugin turns on code lenses in buffers Ruby LSP is attached to, so **Run**,
+**Run In Terminal**, and **Debug** show above your tests. Run the lens on the
+cursor line with `grx`, Neovim’s default mapping for
+`vim.lsp.codelens.run()`. To use a different key, map it yourself:
+
+>lua
+    vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, { desc = "run code lens" })
+<
+
+Set `codelens = false` to leave code lenses to your own config.
+
+
 П��ϸ� RUBY LSP SERVER  *ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server*
 
 The plugin configures and starts Ruby LSP for you, in any project with a
@@ -133,14 +148,25 @@ ruby-lsp` to see why.
 
 Set `lsp.auto_start` to choose where the server starts. `true` starts it in
 every Ruby project, and `false` leaves it to you to call
-`vim.lsp.enable("ruby_lsp")`. A function decides per project. This one skips
-projects that use solargraph:
+`vim.lsp.enable("ruby_lsp")`. A function decides per project.
+
+For example, if some of your projects bundle solargraph and you want solargraph
+to handle those, skip Ruby LSP when `Gemfile.lock` lists it:
 
 >lua
     require("ruby-lsp").setup({
       lsp = {
         auto_start = function(root_dir)
-          return vim.fn.filereadable(root_dir .. "/.solargraph.yml") == 0
+          local lockfile = root_dir .. "/Gemfile.lock"
+          if vim.fn.filereadable(lockfile) == 0 then
+            return true
+          end
+          for _, line in ipairs(vim.fn.readfile(lockfile)) do
+            if line:match("^%s+solargraph[%s(]") or line:match("^%s+solargraph$") then
+              return false
+            end
+          end
+          return true
         end,
       },
     })
@@ -252,6 +278,9 @@ These are the defaults. You only need to pass the ones you want to change.
         -- true | false | function(root_dir): boolean
         auto_start = true,
       },
+
+      -- Show code lenses in buffers Ruby LSP is attached to
+      codelens = true,
 
       -- Add :RubyLsp* user commands to buffers Ruby LSP is attached to
       user_commands = false,
