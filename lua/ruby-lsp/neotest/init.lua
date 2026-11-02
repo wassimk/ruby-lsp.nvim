@@ -173,11 +173,10 @@ function NeotestAdapter.is_test_file(file_path)
   return name:match('_test%.rb$') ~= nil or name:match('_spec%.rb$') ~= nil or name:match('^test_.*%.rb$') ~= nil
 end
 
----Discover test positions via the ruby-lsp language server.
----Waits for the server to start and finish indexing before making requests.
+---Ask Ruby LSP for a file's test items, after it starts and finishes indexing.
 ---@param file_path string
----@return neotest.Tree|nil
-function NeotestAdapter.discover_positions(file_path)
+---@return table[]|nil
+local function discover_items(file_path)
   local file_name = nio.fn.fnamemodify(file_path, ':t')
 
   discovery_state.active_count = discovery_state.active_count + 1
@@ -226,6 +225,18 @@ function NeotestAdapter.discover_positions(file_path)
   if err or not result or type(result) ~= 'table' or #result == 0 then
     return nil
   end
+  return result
+end
+
+---Discover test positions via the ruby-lsp language server.
+---@param file_path string
+---@return neotest.Tree|nil
+function NeotestAdapter.discover_positions(file_path)
+  local result = discover_items(file_path)
+  if not result then
+    return nil
+  end
+  local file_name = nio.fn.fnamemodify(file_path, ':t')
 
   local last_line = 0
   for _, item in ipairs(result) do
@@ -256,6 +267,35 @@ function NeotestAdapter.discover_positions(file_path)
   end)
 end
 
+---Collect the leaf test items under the given LSP items.
+---@param items table[]
+---@param out table[]
+local function collect_leaf_items(items, out)
+  for _, item in ipairs(items) do
+    if item.children and #item.children > 0 then
+      collect_leaf_items(item.children, out)
+    else
+      table.insert(out, utils.wrap_test_item(item))
+    end
+  end
+  return out
+end
+
+---Discover a file's tests for a run that started before neotest had them. Picks
+---the test at the cursor when the file is in the current window, else them all.
+---@param file_path string
+---@return table[]
+local function undiscovered_file_items(file_path)
+  local discovered = discover_items(file_path) or {}
+  if nio.fn.expand('%:p') == file_path then
+    local nearest = utils.find_nearest_test(discovered, nio.fn.line('.') - 1)
+    if nearest then
+      return collect_leaf_items({ nearest }, {})
+    end
+  end
+  return collect_leaf_items(discovered, {})
+end
+
 ---Build a test command spec from a neotest position.
 ---Resolves the actual shell command via rubyLsp/resolveTestCommands.
 ---@param args neotest.RunArgs
@@ -271,6 +311,15 @@ function NeotestAdapter.build_spec(args)
     end
   else
     collect_test_items(tree, items)
+  end
+
+  -- neotest runs the file when the nearest test isn't discovered yet. Returning
+  -- nil there leaves the file marked as running, so discover it now instead.
+  if #items == 0 and position.type == 'file' then
+    items = undiscovered_file_items(position.path)
+    if #items == 0 then
+      error('no tests found in ' .. nio.fn.fnamemodify(position.path, ':t'), 0)
+    end
   end
 
   if #items == 0 then
@@ -430,6 +479,9 @@ function NeotestAdapter.results(spec, result, tree)
       results[pos_id] = { status = 'failed', output = result.output }
     end
   end
+
+  -- neotest only stops showing a position as running once it has a result
+  results[pos_id] = results[pos_id] or { status = result.code == 0 and 'passed' or 'failed', output = result.output }
 
   return results
 end
