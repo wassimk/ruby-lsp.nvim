@@ -72,8 +72,8 @@ describe('setup', function()
   it('adds user commands on attach only when enabled', function()
     local buf = vim.api.nvim_create_buf(true, false)
     local original_get = vim.lsp.get_client_by_id
-    local client = { id = 7, name = 'ruby_lsp', request = function() end }
-    local other = { id = 8, name = 'lua_ls', request = function() end }
+    local client = { id = 7, name = 'ruby_lsp', handlers = {}, request = function() end }
+    local other = { id = 8, name = 'lua_ls', handlers = {}, request = function() end }
     vim.lsp.get_client_by_id = function(id)
       return id == 7 and client or other
     end
@@ -96,6 +96,35 @@ describe('setup', function()
     attach(7)
     assert.is_not_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
 
+    vim.lsp.get_client_by_id = original_get
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  it('drops null values from progress notifications on attach', function()
+    local buf = vim.api.nvim_create_buf(true, false)
+    local original_get = vim.lsp.get_client_by_id
+    local original_progress = vim.lsp.handlers['$/progress']
+    local client = { id = 9, name = 'ruby_lsp', handlers = {}, request = function() end }
+    vim.lsp.get_client_by_id = function()
+      return client
+    end
+    local received
+    vim.lsp.handlers['$/progress'] = function(_, result)
+      received = result
+    end
+
+    ruby_lsp.setup({ dap = { auto_configure = false } })
+    vim.api.nvim_exec_autocmds('LspAttach', { group = 'RubyLsp', buffer = buf, data = { client_id = 9 } })
+    client.handlers['$/progress'](
+      nil,
+      { token = 't', value = { kind = 'report', message = vim.NIL, percentage = vim.NIL } },
+      {},
+      {}
+    )
+
+    assert.same({ token = 't', value = { kind = 'report' } }, received)
+
+    vim.lsp.handlers['$/progress'] = original_progress
     vim.lsp.get_client_by_id = original_get
     vim.api.nvim_buf_delete(buf, { force = true })
   end)
