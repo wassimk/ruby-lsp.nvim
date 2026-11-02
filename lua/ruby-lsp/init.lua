@@ -40,10 +40,11 @@ function M.setup(opts)
         return
       end
       -- per buffer, so it runs before the per-client guard below
-      if config.get().codelens then
+      local cfg = config.get()
+      if cfg.codelens then
         vim.lsp.codelens.enable(true, { bufnr = ev.buf, client_id = client.id })
       end
-      if config.get().user_commands then
+      if cfg.user_commands then
         require('ruby-lsp.user_commands').attach(client, ev.buf)
       end
       if client._ruby_lsp_nvim_attached then

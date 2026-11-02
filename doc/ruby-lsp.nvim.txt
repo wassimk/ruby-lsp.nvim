@@ -179,12 +179,9 @@ Ruby LSP when `Gemfile.lock` lists it:
           if vim.fn.filereadable(lockfile) == 0 then
             return true
           end
-          for _, line in ipairs(vim.fn.readfile(lockfile)) do
-            if line:match("^%s+solargraph[%s(]") or line:match("^%s+solargraph$") then
-              return false
-            end
-          end
-          return true
+          return not vim.iter(vim.fn.readfile(lockfile)):any(function(line)
+            return line:match("^%s+solargraph%f[^%w_-]") ~= nil
+          end)
         end,
       },
     })
