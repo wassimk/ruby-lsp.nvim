@@ -175,7 +175,8 @@ end
 
 ---Ask Ruby LSP for a file's test items, after it starts and finishes indexing.
 ---@param file_path string
----@return table[]|nil
+---@return table[]|nil items
+---@return string|nil err
 local function discover_items(file_path)
   local file_name = nio.fn.fnamemodify(file_path, ':t')
 
@@ -222,10 +223,10 @@ local function discover_items(file_path)
     discovery_state.warned = false
   end
 
-  if err or not result or type(result) ~= 'table' or #result == 0 then
-    return nil
+  if err then
+    return nil, type(err) == 'table' and err.message or tostring(err)
   end
-  return result
+  return type(result) == 'table' and result or {}
 end
 
 ---Discover test positions via the ruby-lsp language server.
@@ -233,7 +234,7 @@ end
 ---@return neotest.Tree|nil
 function NeotestAdapter.discover_positions(file_path)
   local result = discover_items(file_path)
-  if not result then
+  if not result or #result == 0 then
     return nil
   end
   local file_name = nio.fn.fnamemodify(file_path, ':t')
@@ -282,17 +283,27 @@ local function collect_leaf_items(items)
   return leaves
 end
 
+---@param path string|nil
+---@return string|nil
+local function realpath(path)
+  return path and vim.uv.fs_realpath(path) or path
+end
+
 ---Discover a file's tests for a run that started before neotest had them. Picks
 ---the test at the cursor when the file is in the current window, else them all.
----Errors when the file has no tests, which neotest reports and stops the run.
 ---@param file_path string
----@return table[]
+---@return table[] items
+---@return string|nil reason why there is nothing to run
 local function undiscovered_file_items(file_path)
-  local discovered = discover_items(file_path) or {}
-  local nearest = nio.fn.expand('%:p') == file_path and utils.find_nearest_test(discovered, nio.fn.line('.') - 1)
+  local discovered, err = discover_items(file_path)
+  if not discovered then
+    return {}, 'could not discover tests: ' .. err
+  end
+  local in_window = realpath(nio.fn.expand('%:p')) == realpath(file_path)
+  local nearest = in_window and utils.find_nearest_test(discovered, nio.fn.line('.') - 1)
   local items = collect_leaf_items(nearest and { nearest } or discovered)
   if #items == 0 then
-    error('no tests found in ' .. nio.fn.fnamemodify(file_path, ':t'), 0)
+    return {}, 'no tests found in ' .. nio.fn.fnamemodify(file_path, ':t')
   end
   return items
 end
@@ -317,7 +328,18 @@ function NeotestAdapter.build_spec(args)
   -- neotest runs the file when the nearest test isn't discovered yet. Returning
   -- nil there leaves the file marked as running, so discover it now instead.
   if #items == 0 and position.type == 'file' then
-    items = undiscovered_file_items(position.path)
+    local reason
+    items, reason = undiscovered_file_items(position.path)
+    if reason then
+      -- A spec that exits at once, so neotest finishes the run and the file
+      -- gets a skipped result. Raising here would leave neotest's runner
+      -- tracking the file as running and show a stack trace.
+      vim.notify('ruby-lsp: ' .. reason, vim.log.levels.WARN)
+      return {
+        command = { vim.v.progpath, '--clean', '--headless', '+qa!' },
+        context = { pos_id = position.id, skipped = true },
+      }
+    end
   end
 
   if #items == 0 then
@@ -459,6 +481,10 @@ function NeotestAdapter.results(spec, result, tree)
   local results = {}
   local pos_id = spec.context.pos_id
   local framework = spec.context.framework
+
+  if spec.context.skipped then
+    return { [pos_id] = { status = 'skipped' } }
+  end
 
   if result.code == 0 then
     -- All tests passed — mark every leaf

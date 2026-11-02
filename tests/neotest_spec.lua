@@ -237,18 +237,37 @@ describe('neotest adapter', function()
 
       it('runs every test in the file when the cursor is elsewhere', function()
         helpers.lsp_clients = { client_with(discovered) }
+        local stub = require('luassert.stub')
+        stubs = { stub(package.loaded['nio'].fn, 'expand', '/path/test/other_test.rb') }
 
         adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
 
         assert.same({ 'FooTest#test_one', 'FooTest#test_two' }, ids(resolved_items))
       end)
 
-      it('errors when the file has no tests, so neotest stops showing it as running', function()
+      it('skips the file with a message when it has no tests', function()
         helpers.lsp_clients = { client_with({}) }
 
-        assert.has_error(function()
-          adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
-        end)
+        local spec = adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
+
+        assert.is_nil(resolved_items)
+        assert.equals('skipped', adapter.results(spec, { code = 0 }, nil)[file].status)
+        assert.truthy(helpers.notifications[1].msg:find('no tests found in foo_test.rb', 1, true))
+      end)
+
+      it('says why when discovery fails', function()
+        helpers.lsp_clients = {
+          helpers.mock_client({
+            id = 201,
+            request = function(_, _, _, handler)
+              handler({ message = 'boom' }, nil)
+            end,
+          }),
+        }
+
+        adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
+
+        assert.truthy(helpers.notifications[1].msg:find('could not discover tests: boom', 1, true))
       end)
     end)
   end)
