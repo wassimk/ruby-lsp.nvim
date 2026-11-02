@@ -147,10 +147,11 @@ check fails, the server stays off and nothing is shown. Run `:checkhealth
 ruby-lsp` to see why.
 
 
-STARTING THE SERVER YOURSELF ~
+STARTING THE RUBY LSP SERVER YOURSELF ~
 
-By default the server starts in every Ruby project. To start it yourself
-instead, turn off `auto_start` and enable it when you want it:
+By default the plugin starts the Ruby LSP server in every Ruby project. To
+start the server yourself instead, set `lsp.auto_start = false` and call
+`vim.lsp.enable("ruby_lsp")` when you want it:
 
 >lua
     require("ruby-lsp").setup({
@@ -163,12 +164,12 @@ instead, turn off `auto_start` and enable it when you want it:
 <
 
 
-CHOOSING PROJECTS (OPTIONAL) ~
+CHOOSING WHICH PROJECTS START THE RUBY LSP SERVER (OPTIONAL) ~
 
-`auto_start` also takes a function that receives the project root and returns
-whether to start there. For example, if some of your projects bundle solargraph
-and you want solargraph to handle those, skip Ruby LSP when `Gemfile.lock`
-lists it:
+`lsp.auto_start` also takes a function. It receives the project root and
+returns whether to start the Ruby LSP server there. For example, if some of
+your projects bundle solargraph and you want solargraph to handle those, skip
+Ruby LSP when `Gemfile.lock` lists it:
 
 >lua
     require("ruby-lsp").setup({
@@ -190,7 +191,7 @@ lists it:
 <
 
 
-CUSTOMIZING THE SERVER ~
+CUSTOMIZING THE RUBY LSP SERVER ~
 
 Use `after/lsp/ruby_lsp.lua` or `vim.lsp.config("ruby_lsp", { ... })`. Your
 settings merge on top of the plugin’s:

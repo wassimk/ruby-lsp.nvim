@@ -75,9 +75,9 @@ The plugin configures and starts Ruby LSP for you, in any project with a `Gemfil
 
 Before starting, the plugin checks that `ruby-lsp --version` runs from the project root. If you set `cmd` to a list such as `{ "bundle", "exec", "ruby-lsp" }`, it only checks that the first entry is executable. When the check fails, the server stays off and nothing is shown. Run `:checkhealth ruby-lsp` to see why.
 
-### Starting the server yourself
+### Starting the Ruby LSP server yourself
 
-By default the server starts in every Ruby project. To start it yourself instead, turn off `auto_start` and enable it when you want it:
+By default the plugin starts the Ruby LSP server in every Ruby project. To start the server yourself instead, set `lsp.auto_start = false` and call `vim.lsp.enable("ruby_lsp")` when you want it:
 
 ```lua
 require("ruby-lsp").setup({
@@ -89,9 +89,9 @@ require("ruby-lsp").setup({
 vim.lsp.enable("ruby_lsp")
 ```
 
-### Choosing projects (optional)
+### Choosing which projects start the Ruby LSP server (optional)
 
-`auto_start` also takes a function that receives the project root and returns whether to start there. For example, if some of your projects bundle solargraph and you want solargraph to handle those, skip Ruby LSP when `Gemfile.lock` lists it:
+`lsp.auto_start` also takes a function. It receives the project root and returns whether to start the Ruby LSP server there. For example, if some of your projects bundle solargraph and you want solargraph to handle those, skip Ruby LSP when `Gemfile.lock` lists it:
 
 ```lua
 require("ruby-lsp").setup({
@@ -112,7 +112,7 @@ require("ruby-lsp").setup({
 })
 ```
 
-### Customizing the server
+### Customizing the Ruby LSP server
 
 Use `after/lsp/ruby_lsp.lua` or `vim.lsp.config("ruby_lsp", { ... })`. Your settings merge on top of the plugin's:
 
