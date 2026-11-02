@@ -173,7 +173,7 @@ describe('neotest adapter', function()
     -- there left the file marked as running forever.
     describe('for a file whose tests are not discovered yet', function()
       local file = '/path/test/foo_test.rb'
-      local resolved_items, original_fn
+      local resolved_items, stubs
 
       local function range(first, last)
         return { start = { line = first, character = 0 }, ['end'] = { line = last, character = 3 } }
@@ -208,14 +208,14 @@ describe('neotest adapter', function()
 
       before_each(function()
         resolved_items = nil
-        original_fn =
-          { expand = rawget(package.loaded['nio'].fn, 'expand'), line = rawget(package.loaded['nio'].fn, 'line') }
+        stubs = {}
         require('ruby-lsp.utils').on_indexing_complete(201)
       end)
 
       after_each(function()
-        package.loaded['nio'].fn.expand = original_fn.expand
-        package.loaded['nio'].fn.line = original_fn.line
+        for _, s in ipairs(stubs) do
+          s:revert()
+        end
       end)
 
       local function ids(items)
@@ -226,12 +226,8 @@ describe('neotest adapter', function()
 
       it('discovers the file and runs the test at the cursor', function()
         helpers.lsp_clients = { client_with(discovered) }
-        package.loaded['nio'].fn.expand = function()
-          return file
-        end
-        package.loaded['nio'].fn.line = function()
-          return 7
-        end
+        local stub = require('luassert.stub')
+        stubs = { stub(package.loaded['nio'].fn, 'expand', file), stub(package.loaded['nio'].fn, 'line', 7) }
 
         local spec = adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
 

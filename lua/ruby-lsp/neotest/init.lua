@@ -269,31 +269,32 @@ end
 
 ---Collect the leaf test items under the given LSP items.
 ---@param items table[]
----@param out table[]
-local function collect_leaf_items(items, out)
+---@return table[]
+local function collect_leaf_items(items)
+  local leaves = {}
   for _, item in ipairs(items) do
     if item.children and #item.children > 0 then
-      collect_leaf_items(item.children, out)
+      vim.list_extend(leaves, collect_leaf_items(item.children))
     else
-      table.insert(out, utils.wrap_test_item(item))
+      table.insert(leaves, utils.wrap_test_item(item))
     end
   end
-  return out
+  return leaves
 end
 
 ---Discover a file's tests for a run that started before neotest had them. Picks
 ---the test at the cursor when the file is in the current window, else them all.
+---Errors when the file has no tests, which neotest reports and stops the run.
 ---@param file_path string
 ---@return table[]
 local function undiscovered_file_items(file_path)
   local discovered = discover_items(file_path) or {}
-  if nio.fn.expand('%:p') == file_path then
-    local nearest = utils.find_nearest_test(discovered, nio.fn.line('.') - 1)
-    if nearest then
-      return collect_leaf_items({ nearest }, {})
-    end
+  local nearest = nio.fn.expand('%:p') == file_path and utils.find_nearest_test(discovered, nio.fn.line('.') - 1)
+  local items = collect_leaf_items(nearest and { nearest } or discovered)
+  if #items == 0 then
+    error('no tests found in ' .. nio.fn.fnamemodify(file_path, ':t'), 0)
   end
-  return collect_leaf_items(discovered, {})
+  return items
 end
 
 ---Build a test command spec from a neotest position.
@@ -317,9 +318,6 @@ function NeotestAdapter.build_spec(args)
   -- nil there leaves the file marked as running, so discover it now instead.
   if #items == 0 and position.type == 'file' then
     items = undiscovered_file_items(position.path)
-    if #items == 0 then
-      error('no tests found in ' .. nio.fn.fnamemodify(position.path, ':t'), 0)
-    end
   end
 
   if #items == 0 then
@@ -474,13 +472,11 @@ function NeotestAdapter.results(spec, result, tree)
     end
     if next(failed) then
       assign_test_results(tree, failed, framework, result.output, results)
-    else
-      -- Could not parse individual failures — fall back to marking parent
-      results[pos_id] = { status = 'failed', output = result.output }
     end
   end
 
-  -- neotest only stops showing a position as running once it has a result
+  -- Covers runs whose failures couldn't be parsed and files whose tests weren't
+  -- discovered. neotest only stops showing a position as running once it has a result.
   results[pos_id] = results[pos_id] or { status = result.code == 0 and 'passed' or 'failed', output = result.output }
 
   return results
