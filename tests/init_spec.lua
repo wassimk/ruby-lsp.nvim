@@ -133,12 +133,14 @@ describe('setup', function()
       assert.same({ token = 't', value = { kind = 'report' } }, received)
     end)
 
-    it('enables code lenses for the ruby_lsp client', function()
+    it('enables code lenses in buffers the ruby_lsp client attaches to', function()
+      -- the real API, so the test checks what a user can observe
+      vim.lsp.codelens.enable = originals.codelens_enable
       ruby_lsp.setup({ dap = { auto_configure = false } })
       attach(2)
-      assert.same({}, codelens_calls)
+      assert.is_false(vim.lsp.codelens.is_enabled({ bufnr = buf }))
       attach(1)
-      assert.same({ { true, { bufnr = buf, client_id = 1 } } }, codelens_calls)
+      assert.is_true(vim.lsp.codelens.is_enabled({ bufnr = buf }))
     end)
 
     it('leaves code lenses alone when turned off', function()

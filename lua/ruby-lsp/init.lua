@@ -41,8 +41,10 @@ function M.setup(opts)
       end
       -- per buffer, so it runs before the per-client guard below
       local cfg = config.get()
+      -- scoped to the buffer only: with client_id, Neovim records the flag on the
+      -- client, so is_enabled({ bufnr }) is false and the lenses outlive the client
       if cfg.codelens then
-        vim.lsp.codelens.enable(true, { bufnr = ev.buf, client_id = client.id })
+        vim.lsp.codelens.enable(true, { bufnr = ev.buf })
       end
       if cfg.user_commands then
         require('ruby-lsp.user_commands').attach(client, ev.buf)

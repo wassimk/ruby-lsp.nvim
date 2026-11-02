@@ -130,7 +130,9 @@ cursor line with `grx`, Neovim’s default mapping for
     vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, { desc = "run code lens" })
 <
 
-Set `codelens = false` to leave code lenses to your own config.
+Set `codelens = false` to leave code lenses to your own config. With it on, the
+plugin enables code lenses for every server attached to a Ruby buffer, which
+overrides a global `vim.lsp.codelens.enable(false)` there.
 
 
 🖥️ RUBY LSP SERVER  *ruby-lsp.nvim-ruby-lsp.nvim-🖥️-ruby-lsp-server*

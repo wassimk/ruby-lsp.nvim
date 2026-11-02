@@ -67,7 +67,7 @@ The plugin turns on code lenses in buffers Ruby LSP is attached to, so **Run**, 
 vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, { desc = "run code lens" })
 ```
 
-Set `codelens = false` to leave code lenses to your own config.
+Set `codelens = false` to leave code lenses to your own config. With it on, the plugin enables code lenses for every server attached to a Ruby buffer, which overrides a global `vim.lsp.codelens.enable(false)` there.
 
 ## 🖥️ Ruby LSP Server
 
