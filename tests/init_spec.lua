@@ -69,97 +69,82 @@ describe('setup', function()
     assert.is_false(c.reuse_client(client, other))
   end)
 
-  it('adds user commands on attach only when enabled', function()
-    local buf = vim.api.nvim_create_buf(true, false)
-    local original_get = vim.lsp.get_client_by_id
-    local client = { id = 7, name = 'ruby_lsp', handlers = {}, request = function() end }
-    local other = { id = 8, name = 'lua_ls', handlers = {}, request = function() end }
-    vim.lsp.get_client_by_id = function(id)
-      return id == 7 and client or other
-    end
-
-    local function attach(id)
-      vim.api.nvim_exec_autocmds('LspAttach', {
-        group = 'RubyLsp',
-        buffer = buf,
-        data = { client_id = id },
-      })
-    end
-
-    ruby_lsp.setup({ dap = { auto_configure = false } })
-    attach(7)
-    assert.is_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
-
-    ruby_lsp.setup({ dap = { auto_configure = false }, user_commands = true })
-    attach(8)
-    assert.is_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
-    attach(7)
-    assert.is_not_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
-
-    vim.lsp.get_client_by_id = original_get
-    vim.api.nvim_buf_delete(buf, { force = true })
-  end)
-
-  it('drops null values from progress notifications on attach', function()
-    local buf = vim.api.nvim_create_buf(true, false)
-    local original_get = vim.lsp.get_client_by_id
-    local original_progress = vim.lsp.handlers['$/progress']
-    local client = { id = 9, name = 'ruby_lsp', handlers = {}, request = function() end }
-    vim.lsp.get_client_by_id = function()
-      return client
-    end
-    local received
-    vim.lsp.handlers['$/progress'] = function(_, result)
-      received = result
-    end
-
-    ruby_lsp.setup({ dap = { auto_configure = false } })
-    vim.api.nvim_exec_autocmds('LspAttach', { group = 'RubyLsp', buffer = buf, data = { client_id = 9 } })
-    client.handlers['$/progress'](
-      nil,
-      { token = 't', value = { kind = 'report', message = vim.NIL, percentage = vim.NIL } },
-      {},
-      {}
-    )
-
-    assert.same({ token = 't', value = { kind = 'report' } }, received)
-
-    vim.lsp.handlers['$/progress'] = original_progress
-    vim.lsp.get_client_by_id = original_get
-    vim.api.nvim_buf_delete(buf, { force = true })
-  end)
-
-  it('enables code lenses for the ruby_lsp client on attach unless turned off', function()
-    local buf = vim.api.nvim_create_buf(true, false)
-    local original_get = vim.lsp.get_client_by_id
-    local original_enable = vim.lsp.codelens.enable
-    local client = { id = 10, name = 'ruby_lsp', handlers = {}, request = function() end }
-    local other = { id = 11, name = 'lua_ls', handlers = {}, request = function() end }
-    vim.lsp.get_client_by_id = function(id)
-      return id == 10 and client or other
-    end
-    local calls = {}
-    vim.lsp.codelens.enable = function(enable, filter)
-      table.insert(calls, { enable, filter })
-    end
+  describe('on attach', function()
+    local buf, clients, codelens_calls, originals
 
     local function attach(id)
       vim.api.nvim_exec_autocmds('LspAttach', { group = 'RubyLsp', buffer = buf, data = { client_id = id } })
     end
 
-    ruby_lsp.setup({ dap = { auto_configure = false } })
-    attach(11)
-    assert.same({}, calls)
-    attach(10)
-    assert.same({ { true, { bufnr = buf, client_id = 10 } } }, calls)
+    before_each(function()
+      buf = vim.api.nvim_create_buf(true, false)
+      clients = {
+        [1] = { id = 1, name = 'ruby_lsp', handlers = {}, request = function() end },
+        [2] = { id = 2, name = 'lua_ls', handlers = {}, request = function() end },
+      }
+      codelens_calls = {}
+      originals = {
+        get_client_by_id = vim.lsp.get_client_by_id,
+        codelens_enable = vim.lsp.codelens.enable,
+        progress = vim.lsp.handlers['$/progress'],
+      }
+      vim.lsp.get_client_by_id = function(id)
+        return clients[id]
+      end
+      vim.lsp.codelens.enable = function(enable, filter)
+        table.insert(codelens_calls, { enable, filter })
+      end
+    end)
 
-    calls = {}
-    ruby_lsp.setup({ dap = { auto_configure = false }, codelens = false })
-    attach(10)
-    assert.same({}, calls)
+    after_each(function()
+      vim.lsp.get_client_by_id = originals.get_client_by_id
+      vim.lsp.codelens.enable = originals.codelens_enable
+      vim.lsp.handlers['$/progress'] = originals.progress
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
 
-    vim.lsp.codelens.enable = original_enable
-    vim.lsp.get_client_by_id = original_get
-    vim.api.nvim_buf_delete(buf, { force = true })
+    it('adds user commands only when enabled', function()
+      ruby_lsp.setup({ dap = { auto_configure = false } })
+      attach(1)
+      assert.is_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
+
+      ruby_lsp.setup({ dap = { auto_configure = false }, user_commands = true })
+      attach(2)
+      assert.is_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
+      attach(1)
+      assert.is_not_nil(vim.api.nvim_buf_get_commands(buf, {}).RubyLspShowDependencies)
+    end)
+
+    it('drops null values from progress notifications', function()
+      local received
+      vim.lsp.handlers['$/progress'] = function(_, result)
+        received = result
+      end
+
+      ruby_lsp.setup({ dap = { auto_configure = false } })
+      attach(1)
+      clients[1].handlers['$/progress'](
+        nil,
+        { token = 't', value = { kind = 'report', message = vim.NIL, percentage = vim.NIL } },
+        {},
+        {}
+      )
+
+      assert.same({ token = 't', value = { kind = 'report' } }, received)
+    end)
+
+    it('enables code lenses for the ruby_lsp client', function()
+      ruby_lsp.setup({ dap = { auto_configure = false } })
+      attach(2)
+      assert.same({}, codelens_calls)
+      attach(1)
+      assert.same({ { true, { bufnr = buf, client_id = 1 } } }, codelens_calls)
+    end)
+
+    it('leaves code lenses alone when turned off', function()
+      ruby_lsp.setup({ dap = { auto_configure = false }, codelens = false })
+      attach(1)
+      assert.same({}, codelens_calls)
+    end)
   end)
 end)
