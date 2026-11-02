@@ -168,9 +168,118 @@ describe('neotest adapter', function()
         "/^CalculatorTest#(''|test_add|test_average)$/",
       }, spec.command)
     end)
+
+    -- neotest falls back to the file when its tests aren't discovered yet. Returning nil
+    -- there left the file marked as running forever.
+    describe('for a file whose tests are not discovered yet', function()
+      local file = '/path/test/foo_test.rb'
+      local resolved_items, stubs
+
+      local function range(first, last)
+        return { start = { line = first, character = 0 }, ['end'] = { line = last, character = 3 } }
+      end
+
+      local function client_with(discovered)
+        return helpers.mock_client({
+          id = 201,
+          request = function(_, method, params, handler)
+            if method == 'rubyLsp/discoverTests' then
+              handler(nil, discovered)
+            else
+              resolved_items = params.items
+              handler(nil, { commands = { 'bin/rails test ' .. file } })
+            end
+          end,
+        })
+      end
+
+      local discovered = {
+        {
+          id = 'FooTest',
+          label = 'FooTest',
+          range = range(0, 9),
+          tags = { 'framework:rails' },
+          children = {
+            { id = 'FooTest#test_one', label = 'test_one', range = range(1, 3), tags = { 'framework:rails' } },
+            { id = 'FooTest#test_two', label = 'test_two', range = range(5, 7), tags = { 'framework:rails' } },
+          },
+        },
+      }
+
+      before_each(function()
+        resolved_items = nil
+        stubs = {}
+        require('ruby-lsp.utils').on_indexing_complete(201)
+      end)
+
+      after_each(function()
+        for _, s in ipairs(stubs) do
+          s:revert()
+        end
+      end)
+
+      local function ids(items)
+        return vim.tbl_map(function(item)
+          return item.id
+        end, items or {})
+      end
+
+      it('discovers the file and runs the test at the cursor', function()
+        helpers.lsp_clients = { client_with(discovered) }
+        local stub = require('luassert.stub')
+        stubs = { stub(package.loaded['nio'].fn, 'expand', file), stub(package.loaded['nio'].fn, 'line', 7) }
+
+        local spec = adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
+
+        assert.same({ 'FooTest#test_two' }, ids(resolved_items))
+        assert.equals(file, spec.context.pos_id)
+      end)
+
+      it('runs every test in the file when the cursor is elsewhere', function()
+        helpers.lsp_clients = { client_with(discovered) }
+        local stub = require('luassert.stub')
+        stubs = { stub(package.loaded['nio'].fn, 'expand', '/path/test/other_test.rb') }
+
+        adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
+
+        assert.same({ 'FooTest#test_one', 'FooTest#test_two' }, ids(resolved_items))
+      end)
+
+      it('skips the file with a message when it has no tests', function()
+        helpers.lsp_clients = { client_with({}) }
+
+        local spec = adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
+
+        assert.is_nil(resolved_items)
+        assert.equals('skipped', adapter.results(spec, { code = 0 }, nil)[file].status)
+        assert.truthy(helpers.notifications[1].msg:find('no tests found in foo_test.rb', 1, true))
+      end)
+
+      it('says why when discovery fails', function()
+        helpers.lsp_clients = {
+          helpers.mock_client({
+            id = 201,
+            request = function(_, _, _, handler)
+              handler({ message = 'boom' }, nil)
+            end,
+          }),
+        }
+
+        adapter.build_spec({ tree = make_node({ type = 'file', id = file, path = file }) })
+
+        assert.truthy(helpers.notifications[1].msg:find('could not discover tests: boom', 1, true))
+      end)
+    end)
   end)
 
   describe('results', function()
+    it('reports the run position even when it has no discovered tests', function()
+      local tree = make_node({ type = 'file', id = '/path/test.rb' })
+      local spec = { context = { pos_id = '/path/test.rb' } }
+
+      assert.equals('passed', adapter.results(spec, { code = 0, output = '/dev/null' }, tree)['/path/test.rb'].status)
+    end)
+
     it('marks all tests as passed when exit code is 0', function()
       local node1 = make_node({
         type = 'test',
